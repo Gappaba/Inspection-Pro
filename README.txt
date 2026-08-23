@@ -1,11 +1,18 @@
-Inspection Pro v72 — iPhone build
+Inspection Pro v73 — Database / Sync build
 
-Built from v71.
+Built from v72 iPhone build.
 
-Home statistics correction:
-- Removed placeholder 12 completed / 3 reinspections values.
-- Drafts in Progress uses the actual current draft.
-- Completed This Month counts actual archived inspections from the current month.
-- Reinspections Due counts actual completed inspections with FAIL status.
-- Static startup Home shows 0 / 0 until live stored data loads.
-- All v71 iPhone navigation and Settings behavior retained.
+Added:
+- Supabase/PostgreSQL backend support.
+- Email magic-link authentication.
+- Row-level private data access.
+- Push/pull sync of drafts and completed inspections.
+- Full inspection snapshots stored in the database.
+- Automatic sync attempt when internet connectivity returns.
+- Database-generated YEAR-#### inspection numbers when signed in/online.
+- Offline local fallback retained.
+- Database status and Sync Now controls in Settings.
+- SUPABASE_SETUP.sql included.
+
+The app remains usable without a database connection.
+A live backend exists only after a Supabase project is created and connected in Settings.

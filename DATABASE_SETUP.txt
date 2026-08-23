@@ -1,0 +1,36 @@
+Inspection Pro v73 Database Setup
+
+This build adds a real Supabase/PostgreSQL backend while preserving local/offline operation.
+
+1. Create a Supabase project at supabase.com.
+2. Open SQL Editor in the project.
+3. Run all SQL in SUPABASE_SETUP.sql.
+4. In Supabase Authentication, enable Email authentication.
+5. In Project Settings / API, copy:
+   - Project URL
+   - Publishable key (safe browser/public key; NEVER use service_role in the app)
+6. Upload this v73 folder to the same GitHub Pages repository.
+7. Open Inspection Pro > Settings > Database / Sync Settings.
+8. Paste the Project URL and Publishable Key.
+9. Enter your email and select EMAIL ME A SIGN-IN LINK.
+10. Open the email link, return to the app, then press SYNC NOW.
+
+What is stored:
+- current draft
+- completed inspection metadata
+- full inspection snapshot (answers, measurements, report data, signature)
+- annual inspection number
+- PASS / FAIL status
+
+Security:
+- Supabase Row Level Security restricts records to the authenticated account.
+- Do not put a Supabase service_role key in index.html or Settings.
+
+Offline:
+- Local storage remains the working/offline cache.
+- When online, Sync Now uploads local records and downloads completed records.
+- A silent sync is also attempted when connectivity returns.
+
+Numbering:
+- When signed in and online, inspection numbers are allocated by the database as YEAR-####.
+- If the database is unavailable at finalization, the app falls back to the existing local yearly sequence.

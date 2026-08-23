@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v72</title>
+<title>Inspection Pro v73</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -175,7 +175,7 @@ textarea{min-height:100px}
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV72";
+const KEY="inspectionProV73";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -408,6 +408,284 @@ normalizeState();
 
 function load(){try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null}}
 function save(){state.lastSaved=new Date().toLocaleTimeString();localStorage.setItem(KEY,JSON.stringify(state))}
+
+
+const BACKEND_CONFIG_KEY="inspectionProBackendV1";
+let backendClient=null;
+let backendSdkPromise=null;
+
+function getBackendConfig(){
+ try{return JSON.parse(localStorage.getItem(BACKEND_CONFIG_KEY)||"{}")||{}}catch(e){return {}}
+}
+function saveBackendConfigLocal(cfg){
+ localStorage.setItem(BACKEND_CONFIG_KEY,JSON.stringify(cfg||{}));
+ backendClient=null;
+}
+function backendConfigured(){
+ const c=getBackendConfig();
+ return !!(c.url&&c.key);
+}
+function loadSupabaseSdk(){
+ if(window.supabase?.createClient)return Promise.resolve(window.supabase);
+ if(backendSdkPromise)return backendSdkPromise;
+ backendSdkPromise=new Promise((resolve,reject)=>{
+   const s=document.createElement("script");
+   s.src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+   s.onload=()=>window.supabase?.createClient?resolve(window.supabase):reject(new Error("Supabase library did not initialize."));
+   s.onerror=()=>reject(new Error("Could not load the database library. Check your internet connection."));
+   document.head.appendChild(s);
+ });
+ return backendSdkPromise;
+}
+async function getBackendClient(){
+ const cfg=getBackendConfig();
+ if(!cfg.url||!cfg.key)throw new Error("Database is not configured.");
+ if(backendClient)return backendClient;
+ const sdk=await loadSupabaseSdk();
+ backendClient=sdk.createClient(cfg.url,cfg.key,{
+   auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+ });
+ return backendClient;
+}
+async function backendSession(){
+ if(!backendConfigured())return null;
+ try{
+   const c=await getBackendClient();
+   const {data,error}=await c.auth.getSession();
+   if(error)throw error;
+   return data.session||null;
+ }catch(e){console.warn(e);return null}
+}
+async function backendSendLogin(){
+ const cfg=getBackendConfig();
+ const email=(document.getElementById("backendEmail")?.value||cfg.email||"").trim();
+ if(!email){alert("Enter your email address.");return}
+ const c=await getBackendClient();
+ saveBackendConfigLocal({...cfg,email});
+ const redirectTo=location.href.split("#")[0];
+ const {error}=await c.auth.signInWithOtp({email,options:{emailRedirectTo:redirectTo}});
+ if(error){alert("Could not send login link: "+error.message);return}
+ alert("Login link sent. Open the email on this device and tap the link, then return to Inspection Pro.");
+}
+async function backendSignOut(){
+ try{
+   const c=await getBackendClient();
+   await c.auth.signOut();
+   backendClient=null;
+   alert("Signed out of database sync.");
+   backendSettingsScreen();
+ }catch(e){alert(e.message||String(e))}
+}
+function makeLocalRecordId(rec){
+ return String(rec?.localId||rec?.id||rec?.inspectionNumber||("local-"+Date.now()));
+}
+function stateToBackendRecord(s,statusOverride=null){
+ const isCompleted=!!s.report;
+ const status=statusOverride||(isCompleted?"completed":"draft");
+ const localId=s.localId||(s.localId=(crypto?.randomUUID?crypto.randomUUID():"local-"+Date.now()+"-"+Math.random().toString(16).slice(2)));
+ return {
+   local_id:localId,
+   inspection_number:s.inspectionNumber||s.report?.id||null,
+   status,
+   inspection_type:s.type||"",
+   completed_at:s.completedAt||null,
+   customer:s.customer||s.carrierName||s.ownerName||"",
+   unit:s.unit||"",
+   vin:s.vin||"",
+   plate:s.plate||"",
+   overall_result:isCompleted?(s.report?.result||((s.results||[]).some(r=>r.answer==="FAIL")?"FAIL":"PASS")):null,
+   snapshot:JSON.parse(JSON.stringify(s)),
+   updated_at:new Date().toISOString()
+ };
+}
+async function backendUpsertState(s,statusOverride=null){
+ const c=await getBackendClient();
+ const {data:{session},error:sessionError}=await c.auth.getSession();
+ if(sessionError)throw sessionError;
+ if(!session)throw new Error("Sign in before syncing.");
+ const rec=stateToBackendRecord(s,statusOverride);
+ rec.user_id=session.user.id;
+ const {error}=await c.from("inspection_records").upsert(rec,{onConflict:"user_id,local_id"});
+ if(error)throw error;
+ return rec;
+}
+async function nextBackendInspectionNumber(){
+ if(!backendConfigured())return null;
+ try{
+   const c=await getBackendClient();
+   const {data:{session}}=await c.auth.getSession();
+   if(!session)return null;
+   const year=new Date().getFullYear();
+   const {data,error}=await c.rpc("next_inspection_number",{p_year:year});
+   if(error)throw error;
+   return typeof data==="string"?data:null;
+ }catch(e){
+   console.warn("Backend number unavailable; using local sequence.",e);
+   return null;
+ }
+}
+async function ensureFinalInspectionNumber(){
+ if(state.inspectionNumber)return state.inspectionNumber;
+ const remote=await nextBackendInspectionNumber();
+ if(remote){
+   state.inspectionNumber=remote;
+   save();
+   return remote;
+ }
+ return ensureInspectionNumber();
+}
+async function backendPushAll(){
+ const c=await getBackendClient();
+ const {data:{session},error:se}=await c.auth.getSession();
+ if(se)throw se;
+ if(!session)throw new Error("Sign in before syncing.");
+
+ let pushed=0;
+ // Current active draft
+ if(state.type&&!state.report){
+   await backendUpsertState(state,"draft");
+   pushed++;
+ }
+ // Completed local history
+ const completed=loadCompletedInspections();
+ for(const rec of completed){
+   const snap=rec.snapshot;
+   if(snap){
+     await backendUpsertState(snap,"completed");
+     pushed++;
+   }
+ }
+ return pushed;
+}
+async function backendPullCompleted(){
+ const c=await getBackendClient();
+ const {data:{session},error:se}=await c.auth.getSession();
+ if(se)throw se;
+ if(!session)throw new Error("Sign in before syncing.");
+ const {data,error}=await c.from("inspection_records")
+   .select("*")
+   .eq("status","completed")
+   .order("completed_at",{ascending:false});
+ if(error)throw error;
+
+ const local=loadCompletedInspections();
+ const byId=new Map(local.map(x=>[String(x.id),x]));
+ for(const row of (data||[])){
+   const s=row.snapshot||{};
+   const id=row.inspection_number||s.inspectionNumber||s.report?.id||row.local_id;
+   const rec={
+     id,
+     type:row.inspection_type||s.type||"",
+     date:s.report?.date||row.completed_at||"",
+     completedAt:row.completed_at||s.completedAt||"",
+     customer:row.customer||s.customer||"",
+     unit:row.unit||s.unit||"",
+     vin:row.vin||s.vin||"",
+     year:s.year||"",make:s.make||"",model:s.model||"",
+     plate:row.plate||s.plate||"",plateState:s.plateState||"",
+     odometer:s.odometer||"",
+     inspectorName:s.inspectorName||"",inspectorNo:s.inspectorNo||"",
+     overall:row.overall_result||s.report?.result||"",
+     results:s.results||[],
+     tireMeasurements:s.tireMeasurements||[],
+     brakeMeasurements:s.brakeMeasurements||[],
+     axleConfig:s.axleConfig||[],
+     report:s.report||{id,result:row.overall_result||"",date:s.report?.date||""},
+     signature:s.signature||"",
+     snapshot:s
+   };
+   byId.set(String(id),rec);
+ }
+ const merged=[...byId.values()].sort((a,b)=>new Date(b.completedAt||0)-new Date(a.completedAt||0));
+ saveCompletedInspections(merged.slice(0,1000));
+ return data?.length||0;
+}
+async function backendPullDraft(){
+ const c=await getBackendClient();
+ const {data:{session}}=await c.auth.getSession();
+ if(!session)return false;
+ const {data,error}=await c.from("inspection_records")
+   .select("*")
+   .eq("status","draft")
+   .order("updated_at",{ascending:false})
+   .limit(1);
+ if(error)throw error;
+ const row=data?.[0];
+ if(!row?.snapshot)return false;
+ if(!state.type||state.report){
+   state=row.snapshot;
+   normalizeState();
+   save();
+   return true;
+ }
+ return false;
+}
+async function backendSync(showAlert=true){
+ if(!backendConfigured()){
+   if(showAlert)alert("Configure the database in Settings first.");
+   return;
+ }
+ try{
+   const pushed=await backendPushAll();
+   const pulled=await backendPullCompleted();
+   const draftPulled=await backendPullDraft();
+   localStorage.setItem("inspectionProLastBackendSync",new Date().toISOString());
+   if(showAlert)alert(`Database sync complete.\nUploaded: ${pushed}\nDownloaded completed: ${pulled}${draftPulled?"\nRestored a remote draft.":""}`);
+   home();
+ }catch(e){
+   console.error(e);
+   if(showAlert)alert("Database sync failed: "+(e.message||String(e)));
+ }
+}
+function backendSyncSilent(){
+ if(!backendConfigured()||!navigator.onLine)return;
+ setTimeout(()=>backendSync(false),50);
+}
+async function backendSaveSettings(){
+ const url=(document.getElementById("backendUrl")?.value||"").trim().replace(/\/+$/,"");
+ const key=(document.getElementById("backendKey")?.value||"").trim();
+ const email=(document.getElementById("backendEmail")?.value||"").trim();
+ if(!url||!key){alert("Enter the Supabase Project URL and Publishable Key.");return}
+ saveBackendConfigLocal({url,key,email});
+ try{
+   await getBackendClient();
+   alert("Database settings saved.");
+   backendSettingsScreen();
+ }catch(e){alert("Saved, but connection could not be initialized: "+e.message)}
+}
+async function backendSettingsScreen(){
+ const cfg=getBackendConfig();
+ let session=null;
+ try{session=await backendSession()}catch(e){}
+ const last=localStorage.getItem("inspectionProLastBackendSync");
+ appScreen.innerHTML=`${back("settingsScreen()")}
+ <div class="card">
+   <h2>Database & Sync</h2>
+   <p class="muted">Inspection Pro remains offline-first. When connected, drafts and completed inspections can be synchronized to your private Supabase database.</p>
+   <label>Supabase Project URL</label>
+   <input id="backendUrl" value="${esc(cfg.url||"")}" placeholder="https://xxxxx.supabase.co">
+   <label>Publishable Key</label>
+   <input id="backendKey" value="${esc(cfg.key||"")}" placeholder="sb_publishable_...">
+   <label>Login Email</label>
+   <input id="backendEmail" type="email" value="${esc(cfg.email||"")}" placeholder="you@example.com">
+   <button class="primary" onclick="backendSaveSettings()">SAVE DATABASE SETTINGS</button>
+ </div>
+ <div class="card">
+   <h3>Account</h3>
+   <p><b>Status:</b> ${session?`Signed in as ${esc(session.user.email||"user")}`:"Not signed in"}</p>
+   ${session?`
+     <button class="primary" onclick="backendSync(true)">SYNC NOW</button>
+     <button class="secondary" style="width:100%;margin-top:10px" onclick="backendSignOut()">SIGN OUT</button>
+   `:`
+     <button class="primary" onclick="backendSendLogin()">EMAIL ME A SIGN-IN LINK</button>
+   `}
+   <p class="muted">Last successful sync: ${last?new Date(last).toLocaleString():"Never"}</p>
+ </div>
+ <div class="card">
+   <h3>Offline Behavior</h3>
+   <p>Inspections continue to save locally if cellular or Wi-Fi service is unavailable. Use Sync Now after reconnecting.</p>
+ </div>`;
+}
 
 const HISTORY_KEY="inspectionProCompletedV1";
 const INSPECTION_SEQUENCE_KEY="inspectionProAnnualSequenceV1";
@@ -1357,13 +1635,13 @@ function signatureScreen(){
  ["mouseup","mouseleave","touchend"].forEach(x=>canvas.addEventListener(x,end,{passive:false}));
 }
 function clearSignature(){ctx.clearRect(0,0,canvas.width,canvas.height)}
-function saveSignature(){
+async function saveSignature(){
  if(state.type==="Minnesota MIP" && !state.mnCompliance){
    alert("Select YES or NO for the 49 CFR 396.17 Appendix A compliance question before signing.");
    return;
  }
- ensureInspectionNumber();
- state.signature=canvas.toDataURL("image/png");state.completedAt=new Date().toISOString();state.report={id:(state.type==="Minnesota MIP"?"MIP":"FED")+"-"+new Date().getFullYear()+"-"+String(Date.now()).slice(-6),date:new Date().toLocaleDateString(),result:state.results.some(r=>r.answer==="FAIL")?"FAIL":"PASS"};state.stage="final";save();finalScreen()}
+ await ensureFinalInspectionNumber();
+ state.signature=canvas.toDataURL("image/png");state.completedAt=new Date().toISOString();state.report={id:state.inspectionNumber,date:new Date().toLocaleDateString(),result:state.results.some(r=>r.answer==="FAIL")?"FAIL":"PASS"};state.stage="final";save();archiveCompletedInspection();backendSyncSilent();finalScreen()}
 
 function finalScreen(){
  const failed=state.report.result==="FAIL";
@@ -2064,7 +2342,11 @@ function reportsScreen(){
 }
 function settingsScreen(){appScreen.innerHTML=`${back("home()")}<div class="card"><h2>Settings</h2>
  <p>Inspector profile, company information, signature settings, credentials, sync, and future subscription permissions.</p>
- <hr><h3>Minnesota MIP Form</h3>
+ <hr><h3>Database & Sync</h3>
+ <p class="muted">Back up inspections, sync between devices, and restore records.</p>
+ <button class="primary" onclick="backendSettingsScreen()">DATABASE / SYNC SETTINGS</button>
+ <hr>
+ <h3>Minnesota MIP Form</h3>
  <p class="muted">The exact revised 2026 Minnesota MIP PDF is saved inside this application.</p>
  <button class="primary" onclick="openEmbeddedBlankMinnesotaPDF()">OPEN SAVED FORM</button>
  <button class="secondary" style="width:100%;margin-top:10px" onclick="downloadEmbeddedBlankMinnesotaPDF()">SAVE A COPY OF BLANK FORM</button>
@@ -2101,6 +2383,7 @@ function registerInspectionProServiceWorker(){
  }
 }
 
+window.addEventListener("online",()=>backendSyncSilent());
 registerInspectionProServiceWorker();
 home();
 </script>
