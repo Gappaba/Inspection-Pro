@@ -1,15 +1,15 @@
-Inspection Pro v70 — iPhone build
+Inspection Pro v71 — iPhone build
 
-Built from v69.
+Built from v70.
 
-Draft management:
-- CONTINUE INSPECTION and DELETE DRAFT controls added.
-- Delete Draft requires confirmation.
-- Completed inspection history is not affected.
-
-Inspection numbering:
-- YEAR-SEQUENCE number is no longer consumed when a draft is started.
-- Inspection number is assigned only when the inspection is finalized/signed.
-- Deleted or abandoned drafts therefore do not create gaps in the annual sequence.
-
-All v69 iPhone/PWA functionality retained.
+iPhone navigation fix:
+- Added Settings to the bottom mobile navigation.
+- Bottom navigation now includes:
+  Home
+  New
+  Drafts
+  History
+  Settings
+- Mobile nav adjusted to five equal columns.
+- Existing Settings screen and iPhone install instructions are retained.
+- All v70 draft-management and numbering behavior retained.
