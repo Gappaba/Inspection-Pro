@@ -1,24 +1,14 @@
-Inspection Pro v75 — Discrepancy Reports
+Inspection Pro v80 — MIP / Federal DOT Retention
 
-Built from v74.
+Correction to v79.
 
-New discrepancy workflow:
-- Failed inspection items still require a written discrepancy and photo.
-- Up to 4 photos can now be attached to each discrepancy.
-- Photos can be removed before saving the failed item.
-- Completed failed inspections show a DISCREPANCY REPORT button.
-- Discrepancy report includes:
-  inspection number/date,
-  customer/unit/vehicle/VIN/plate,
-  inspector,
-  each failed section/item,
-  discrepancy description,
-  all attached photos,
-  total discrepancy count.
-- Discrepancy report can be:
-  viewed,
-  saved as PDF,
-  printed,
-  shared/emailed as a PDF on iPhone.
-- Existing v74 inspection report Save/Print/Share actions retained.
-- v73 Supabase database/sync support retained.
+14 months + 5 days automatic deletion applies ONLY to:
+- Minnesota MIP completed inspections
+- U.S. Federal Periodic / Federal DOT completed inspections
+
+It does NOT automatically delete:
+- Customer records
+- Active drafts
+- Other/future inspection or report types
+
+SUPABASE_RETENTION.sql has been updated to enforce the same scope in Supabase.
