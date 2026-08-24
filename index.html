@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v87</title>
+<title>Inspection Pro v88</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -170,7 +170,7 @@ textarea{min-height:100px}
 }
 
 
-.mobile-more-menu{position:fixed;right:12px;bottom:76px;width:min(290px,calc(100vw - 24px));background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 36px rgba(15,23,42,.22);padding:10px;z-index:1000;display:none}
+.mobile-more-menu{position:fixed;right:12px;bottom:76px;width:min(310px,calc(100vw - 24px));max-height:calc(100vh - 110px);overflow-y:auto;-webkit-overflow-scrolling:touch;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 36px rgba(15,23,42,.22);padding:10px;z-index:1000;display:none}
 .mobile-more-menu.open{display:block}
 .mobile-more-menu button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;margin:2px 0;border:0;border-radius:11px;background:#fff;color:#0f172a;font-size:16px;font-weight:700}
 .mobile-more-menu button:active{background:#f1f5f9}.mobile-more-menu .menu-icon{width:28px;text-align:center;font-size:20px}
@@ -222,16 +222,17 @@ textarea{min-height:100px}
 <button onclick="toggleMobileMore()">☰<br>More</button>
 </div>
 <div id="mobileMoreMenu" class="mobile-more-menu">
+<div style="padding:8px 12px 10px;font-weight:800;font-size:18px;border-bottom:1px solid var(--border);margin-bottom:6px">More</div>
+<button onclick="closeMobileMore();helpScreen()"><span class="menu-icon">❓</span>Help & Guides</button>
 <button onclick="closeMobileMore();customerDatabaseScreen()"><span class="menu-icon">👥</span>Customers</button>
 <button onclick="closeMobileMore();technicianProfilesScreen()"><span class="menu-icon">🧰</span>Technicians</button>
 <button onclick="closeMobileMore();reportsScreen()"><span class="menu-icon">📊</span>Reports</button>
 <button onclick="closeMobileMore();settingsScreen()"><span class="menu-icon">⚙️</span>Settings</button>
-<button onclick="closeMobileMore();helpScreen()"><span class="menu-icon">❓</span>Help & Guides</button>
 </div>
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV87";
+const KEY="inspectionProV88";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -1816,6 +1817,11 @@ function home(){
      <button class="primary" onclick="editTechnicianScreen()">+ ADD TECHNICIAN / INSPECTOR</button>
      <button class="secondary" onclick="technicianProfilesScreen()">MANAGE TECHNICIANS</button>
    </div>
+ </div>
+ <div class="card">
+   <h3>Help & Guides</h3>
+   <p class="muted">Troubleshooting and step-by-step instructions for customers, vehicles, inspections, reports, photos, sync, and more.</p>
+   <button class="secondary" onclick="helpScreen()">OPEN HELP & GUIDES</button>
  </div>
  <div class="stats"><div class="stat"><strong>${state.type&&!state.report?1:0}</strong><div class="muted">Drafts in progress</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>{const d=new Date(x.completedAt||x.date),n=new Date();return !isNaN(d)&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()}).length}</strong><div class="muted">Completed this month</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>x.overall==="FAIL").length}</strong><div class="muted">Reinspections due</div></div></div>`;
 }
