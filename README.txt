@@ -1,8 +1,9 @@
-Inspection Pro v88 — Help Menu Visibility Fix
+Inspection Pro v89 — Visible Version Label
 
-Fixes v87 Help & Guides visibility:
-- Help & Guides is now the FIRST item under More.
-- More menu is scrollable on smaller iPhones.
-- More menu has a visible heading.
-- Help & Guides also has a Home screen shortcut as a fallback.
-- All v87 help content is retained.
+Adds a small, unobtrusive version number:
+- Bottom of the Home screen: Inspection Pro • v89
+- Upper-right of the More menu: v89
+
+This makes it easy to verify which build is running on desktop or iPhone without cluttering the interface.
+
+All v88 functionality retained.

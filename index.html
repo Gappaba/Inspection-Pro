@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v88</title>
+<title>Inspection Pro v89</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -186,6 +186,8 @@ textarea{min-height:100px}
 .help-body ol,.help-body ul{padding-left:22px}
 .help-tag{display:inline-block;border-radius:999px;background:#eef2ff;padding:3px 8px;font-size:11px;font-weight:700;margin:2px 4px 2px 0}
 
+
+.app-version{font-size:10px;font-weight:600;letter-spacing:.04em;opacity:.55;text-align:center;margin:8px 0 2px}
 </style>
 </head>
 <body>
@@ -222,7 +224,7 @@ textarea{min-height:100px}
 <button onclick="toggleMobileMore()">☰<br>More</button>
 </div>
 <div id="mobileMoreMenu" class="mobile-more-menu">
-<div style="padding:8px 12px 10px;font-weight:800;font-size:18px;border-bottom:1px solid var(--border);margin-bottom:6px">More</div>
+<div style="padding:8px 12px 10px;font-weight:800;font-size:18px;border-bottom:1px solid var(--border);margin-bottom:6px">More <span style="font-size:10px;font-weight:600;opacity:.5;float:right;margin-top:6px">v89</span></div>
 <button onclick="closeMobileMore();helpScreen()"><span class="menu-icon">❓</span>Help & Guides</button>
 <button onclick="closeMobileMore();customerDatabaseScreen()"><span class="menu-icon">👥</span>Customers</button>
 <button onclick="closeMobileMore();technicianProfilesScreen()"><span class="menu-icon">🧰</span>Technicians</button>
@@ -232,7 +234,7 @@ textarea{min-height:100px}
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV88";
+const KEY="inspectionProV89";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -1823,7 +1825,8 @@ function home(){
    <p class="muted">Troubleshooting and step-by-step instructions for customers, vehicles, inspections, reports, photos, sync, and more.</p>
    <button class="secondary" onclick="helpScreen()">OPEN HELP & GUIDES</button>
  </div>
- <div class="stats"><div class="stat"><strong>${state.type&&!state.report?1:0}</strong><div class="muted">Drafts in progress</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>{const d=new Date(x.completedAt||x.date),n=new Date();return !isNaN(d)&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()}).length}</strong><div class="muted">Completed this month</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>x.overall==="FAIL").length}</strong><div class="muted">Reinspections due</div></div></div>`;
+ <div class="stats"><div class="stat"><strong>${state.type&&!state.report?1:0}</strong><div class="muted">Drafts in progress</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>{const d=new Date(x.completedAt||x.date),n=new Date();return !isNaN(d)&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()}).length}</strong><div class="muted">Completed this month</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>x.overall==="FAIL").length}</strong><div class="muted">Reinspections due</div></div></div><div class="app-version">Inspection Pro • v89</div>
+`;
 }
 
 function newInspection(){
