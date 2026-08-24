@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v81</title>
+<title>Inspection Pro v84</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -153,6 +153,22 @@ textarea{min-height:100px}
 .disc-photo-grid img{width:100%;max-height:300px;object-fit:contain;border:1px solid #aaa}
 @media print{.disc-item{break-inside:avoid}.disc-photo-grid img{max-height:3.2in}}
 
+
+.customer-landing{max-width:980px;margin:0 auto}
+.customer-landing-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.customer-landing-title{font-size:28px;font-weight:800;margin:0;color:#0f172a}
+.customer-action-panel{background:#fff;border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 8px 24px rgba(15,23,42,.08)}
+.customer-action-stack{display:grid;gap:28px}
+.customer-big-action{width:100%;min-height:92px;border-radius:16px;font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:18px}
+.customer-big-action .icon{font-size:34px;line-height:1}
+@media(max-width:680px){
+  .customer-landing-title{font-size:24px}
+  .customer-action-panel{padding:20px}
+  .customer-action-stack{gap:24px}
+  .customer-big-action{min-height:86px;font-size:22px}
+  .customer-big-action .icon{font-size:30px}
+}
+
 </style>
 </head>
 <body>
@@ -191,7 +207,7 @@ textarea{min-height:100px}
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV81";
+const KEY="inspectionProV84";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -540,18 +556,39 @@ function updateSharedDotNotice(){
 function sharedDotCount(usdot){
  return customersSharingDot(usdot).length;
 }
-function customerDatabaseScreen(query=""){
+function customerDatabaseScreen(query="",showSearch=false){
  const q=String(query||"").toLowerCase().trim();
  const rows=loadCustomers().filter(c=>!q||[c.company,c.contact,c.phone,c.email,c.usdot].some(v=>String(v||"").toLowerCase().includes(q)));
- appScreen.innerHTML=`${back("home()")}
+
+ if(!showSearch && !q){
+   appScreen.innerHTML=`${back("home()")}
+   <div class="customer-landing">
+     <div class="customer-landing-header">
+       <h2 class="customer-landing-title">Customers</h2>
+     </div>
+     <div class="customer-action-panel">
+       <div class="customer-action-stack">
+         <button class="primary customer-big-action" onclick="customerDatabaseScreen('',true)">
+           <span class="icon">⌕</span><span>SEARCH</span>
+         </button>
+         <button class="primary customer-big-action" onclick="editCustomerScreen()">
+           <span class="icon">＋</span><span>ADD CUSTOMER</span>
+         </button>
+       </div>
+     </div>
+   </div>`;
+   return;
+ }
+
+ appScreen.innerHTML=`${back("customerDatabaseScreen()")}
  <div class="card">
-   <h2>Customer Database</h2>
+   <h2>Search Customers</h2>
    <p class="muted">Multiple customer/company names may share the same USDOT number.</p>
    <div class="row">
      <div style="flex:1"><input id="custSearch" value="${esc(query)}" placeholder="Search company, contact, phone, email, USDOT"></div>
-     <div><button class="primary" onclick="customerDatabaseScreen(document.getElementById('custSearch').value)">SEARCH</button></div>
+     <div><button class="primary" onclick="customerDatabaseScreen(document.getElementById('custSearch').value,true)">SEARCH</button></div>
    </div>
-   <button class="primary" onclick="editCustomerScreen()">+ ADD CUSTOMER</button>
+   <button class="secondary" style="width:100%" onclick="customerDatabaseScreen()">BACK TO CUSTOMER MENU</button>
  </div>
  ${rows.length?rows.map(c=>`
  <div class="card">
@@ -649,6 +686,178 @@ async function syncCustomersFromBackend(){
  saveCustomers([...byId.values()]);
 }
 
+
+
+const TECH_DB_KEY="inspectionProTechniciansV1";
+const ACTIVE_TECH_KEY="inspectionProActiveTechnicianV1";
+
+function loadTechnicians(){
+ try{
+   const x=JSON.parse(localStorage.getItem(TECH_DB_KEY)||"[]");
+   return Array.isArray(x)?x:[];
+ }catch(e){return []}
+}
+function saveTechnicians(list){
+ localStorage.setItem(TECH_DB_KEY,JSON.stringify(list||[]));
+}
+function newTechnicianId(){
+ return crypto?.randomUUID?crypto.randomUUID():"tech-"+Date.now()+"-"+Math.random().toString(16).slice(2);
+}
+function activeTechnicianId(){
+ return localStorage.getItem(ACTIVE_TECH_KEY)||"";
+}
+function activeTechnician(){
+ const id=activeTechnicianId();
+ return loadTechnicians().find(t=>t.id===id)||null;
+}
+function setActiveTechnician(id){
+ localStorage.setItem(ACTIVE_TECH_KEY,id||"");
+ const t=activeTechnician();
+ if(t){
+   state.inspectorName=t.name||"";
+   state.inspectorNo=t.inspectorNo||"";
+   save();
+ }
+}
+function technicianFromForm(){
+ return {
+   id:(document.getElementById("techId")?.value||newTechnicianId()),
+   name:(document.getElementById("techName")?.value||"").trim(),
+   email:(document.getElementById("techEmail")?.value||"").trim(),
+   phone:(document.getElementById("techPhone")?.value||"").trim(),
+   employeeNo:(document.getElementById("techEmployeeNo")?.value||"").trim(),
+   inspectorNo:(document.getElementById("techInspectorNo")?.value||"").trim(),
+   notes:(document.getElementById("techNotes")?.value||"").trim(),
+   active:document.getElementById("techActive")?.checked!==false,
+   updatedAt:new Date().toISOString()
+ };
+}
+function upsertLocalTechnician(t){
+ const list=loadTechnicians();
+ const i=list.findIndex(x=>x.id===t.id);
+ if(i>=0)list[i]=t;else list.unshift(t);
+ saveTechnicians(list);
+}
+async function saveTechnicianRecord(){
+ const t=technicianFromForm();
+ if(!t.name){alert("Technician / inspector name is required.");return}
+ upsertLocalTechnician(t);
+ if(!activeTechnicianId())setActiveTechnician(t.id);
+
+ if(backendConfigured()){
+   try{
+     const cli=await getBackendClient();
+     const {data:{session}}=await cli.auth.getSession();
+     if(session){
+       const row={
+         user_id:session.user.id,
+         technician_id:t.id,
+         name:t.name,email:t.email,phone:t.phone,employee_no:t.employeeNo,
+         inspector_no:t.inspectorNo,
+         notes:t.notes,active:t.active,updated_at:t.updatedAt
+       };
+       const {error}=await cli.from("technicians").upsert(row,{onConflict:"user_id,technician_id"});
+       if(error)throw error;
+     }
+   }catch(e){console.warn("Technician backend save failed",e)}
+ }
+ alert("Technician / inspector profile saved.");
+ technicianProfilesScreen();
+}
+async function deleteTechnicianRecord(id){
+ const t=loadTechnicians().find(x=>x.id===id);if(!t)return;
+ if(!confirm("Delete this technician / inspector profile? Completed inspection records will not be deleted."))return;
+ saveTechnicians(loadTechnicians().filter(x=>x.id!==id));
+ if(activeTechnicianId()===id)localStorage.removeItem(ACTIVE_TECH_KEY);
+ if(backendConfigured()){
+   try{
+     const cli=await getBackendClient();
+     const {data:{session}}=await cli.auth.getSession();
+     if(session)await cli.from("technicians").delete().eq("user_id",session.user.id).eq("technician_id",id);
+   }catch(e){console.warn(e)}
+ }
+ technicianProfilesScreen();
+}
+function qualificationStatus(t){
+ return t.active===false?"INACTIVE":"ACTIVE";
+}
+function technicianProfilesScreen(){
+ const list=loadTechnicians();
+ const activeId=activeTechnicianId();
+ appScreen.innerHTML=`${back("settingsScreen()")}
+ <div class="card">
+   <h2>Technician / Inspector Profiles</h2>
+   <p class="muted">Select the active inspector used to auto-fill inspections and reports.</p>
+   <button class="primary" onclick="editTechnicianScreen()">+ ADD TECHNICIAN / INSPECTOR</button>
+ </div>
+ ${list.length?list.map(t=>`
+ <div class="card">
+   <div class="row">
+     <div style="flex:2">
+       <h3 style="margin-bottom:4px">${esc(t.name)}</h3>
+       <p>${t.employeeNo?`Employee # ${esc(t.employeeNo)}<br>`:""}${t.inspectorNo?`Inspector # ${esc(t.inspectorNo)}<br>`:""}</p>
+       <p class="muted">${t.email?esc(t.email):""}${t.phone?` • ${esc(t.phone)}`:""}</p>
+     </div>
+     <div style="min-width:110px;text-align:center">
+       <span class="pill">${qualificationStatus(t)}</span>
+       ${activeId===t.id?`<div class="success" style="margin-top:8px"><b>ACTIVE INSPECTOR</b></div>`:""}
+     </div>
+   </div>
+   <div class="row">
+     ${activeId!==t.id&&t.active?`<button class="primary" onclick="setActiveTechnician('${t.id}');technicianProfilesScreen()">SET ACTIVE</button>`:""}
+     <button class="secondary" onclick="editTechnicianScreen('${t.id}')">EDIT</button>
+     <button class="danger" onclick="deleteTechnicianRecord('${t.id}')">DELETE</button>
+   </div>
+ </div>`).join(""):`<div class="card"><p class="muted">No technician profiles saved yet.</p></div>`}`;
+}
+function editTechnicianScreen(id=""){
+ const t=loadTechnicians().find(x=>x.id===id)||{
+   id:newTechnicianId(),name:"",email:"",phone:"",employeeNo:"",inspectorNo:"",notes:"",active:true
+ };
+ appScreen.innerHTML=`${back("technicianProfilesScreen()")}
+ <div class="card">
+   <h2>${id?"Edit":"Add"} Technician / Inspector</h2>
+   <input type="hidden" id="techId" value="${esc(t.id)}">
+   <label>Name *</label><input id="techName" value="${esc(t.name)}">
+   <div class="grid2">
+     <div><label>Email</label><input id="techEmail" type="email" value="${esc(t.email)}"></div>
+     <div><label>Phone</label><input id="techPhone" type="tel" value="${esc(t.phone)}"></div>
+   </div>
+   <div class="grid2">
+     <div><label>Employee #</label><input id="techEmployeeNo" value="${esc(t.employeeNo)}"></div>
+     <div><label>Inspector #</label><input id="techInspectorNo" value="${esc(t.inspectorNo)}"></div>
+   </div>
+   <label>Notes</label><textarea id="techNotes">${esc(t.notes)}</textarea>
+   <label><input type="checkbox" id="techActive" ${t.active!==false?"checked":""}> Active technician / inspector</label>
+   <button class="primary" onclick="saveTechnicianRecord()">SAVE TECHNICIAN / INSPECTOR</button>
+ </div>`;
+}
+function activeTechnicianOptionsHtml(){
+ const list=loadTechnicians().filter(t=>t.active!==false);
+ return `<option value="">-- Select inspector --</option>`+
+   list.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}${t.inspectorNo?` — #${esc(t.inspectorNo)}`:""}</option>`).join("");
+}
+function applyActiveTechnicianSelection(){
+ const id=document.getElementById("savedInspectorSelect")?.value||"";
+ if(!id)return;
+ setActiveTechnician(id);
+ setup(state.type);
+}
+async function syncTechniciansFromBackend(){
+ if(!backendConfigured())return;
+ const cli=await getBackendClient();
+ const {data:{session}}=await cli.auth.getSession();
+ if(!session)return;
+ const {data,error}=await cli.from("technicians").select("*").order("name");
+ if(error)throw error;
+ const byId=new Map(loadTechnicians().map(t=>[t.id,t]));
+ (data||[]).forEach(r=>byId.set(r.technician_id,{
+   id:r.technician_id,name:r.name||"",email:r.email||"",phone:r.phone||"",employeeNo:r.employee_no||"",
+   inspectorNo:r.inspector_no||"",notes:r.notes||"",
+   active:r.active!==false,updatedAt:r.updated_at||""
+ }));
+ saveTechnicians([...byId.values()]);
+}
 
 const VEHICLE_DB_KEY="inspectionProVehiclesV1";
 
@@ -938,6 +1147,7 @@ async function backendSync(showAlert=true){
    const pulled=await backendPullCompleted();
    await syncCustomersFromBackend();
    await syncVehiclesFromBackend();
+   await syncTechniciansFromBackend();
    const draftPulled=await backendPullDraft();
    localStorage.setItem("inspectionProLastBackendSync",new Date().toISOString());
    if(showAlert)alert(`Database sync complete.\nUploaded: ${pushed}\nDownloaded completed: ${pulled}${draftPulled?"\nRestored a remote draft.":""}`);
@@ -1673,14 +1883,15 @@ function setup(type){
  <label>Carrier Street Address</label><input id="carrierAddress" value="${state.carrierAddress}">
  <label>Carrier City, State ZIP</label><input id="carrierCityStateZip" value="${state.carrierCityStateZip||""}">
  <div class="row"><div><label>Owner USDOT #</label><input id="ownerDot" value="${state.ownerDot}"></div><div><label>Carrier USDOT #</label><input id="carrierDot" value="${state.carrierDot}"></div></div>
- <label>Inspector Name</label><input id="inspectorName" value="${state.inspectorName}">
+ <label>Saved Inspector</label><select id="savedInspectorSelect" onchange="applyActiveTechnicianSelection()">${activeTechnicianOptionsHtml()}</select><label>Inspector Name</label><input id="inspectorName" value="${state.inspectorName}">
  <label>Inspector #</label><input id="inspectorNo" value="${state.inspectorNo}" placeholder="Required for Minnesota MIP">
  <label>Decal # (if issued)</label><input id="decalNo" value="${state.decalNo}">`:
- `<hr><label>Inspector Name</label><input id="inspectorName" value="${state.inspectorName}">`}
+ `<hr><label>Saved Inspector</label><select id="savedInspectorSelect" onchange="applyActiveTechnicianSelection()">${activeTechnicianOptionsHtml()}</select><label>Inspector Name</label><input id="inspectorName" value="${state.inspectorName}">`}
  <label>Number of Axles</label><select id="axles">${Array.from({length:state.type==="Minnesota MIP"?7:8},(_,i)=>`<option ${state.axles===i+1?"selected":""}>${i+1}</option>`).join("")}</select>
  <button class="primary" onclick="saveSetup()">CONTINUE →</button></div>`;
  if(state.selectedCustomerId&&document.getElementById("savedCustomerSelect"))document.getElementById("savedCustomerSelect").value=state.selectedCustomerId;
  if(state.selectedVehicleId&&document.getElementById("savedVehicleSelect"))document.getElementById("savedVehicleSelect").value=state.selectedVehicleId;
+ if(activeTechnicianId()&&document.getElementById("savedInspectorSelect"))document.getElementById("savedInspectorSelect").value=activeTechnicianId();
  document.getElementById("vehicleType").value=state.vehicleType;
  document.getElementById("odometerType").value=state.odometerType||"Chassis";
 }
@@ -2067,6 +2278,7 @@ function signatureScreen(){
 }
 function clearSignature(){ctx.clearRect(0,0,canvas.width,canvas.height)}
 async function saveSignature(){
+
  if(state.type==="Minnesota MIP" && !state.mnCompliance){
    alert("Select YES or NO for the 49 CFR 396.17 Appendix A compliance question before signing.");
    return;
@@ -2975,6 +3187,11 @@ function reportsScreen(){
  </div>`;
 }
 function settingsScreen(){appScreen.innerHTML=`${back("home()")}<div class="card"><h2>Settings</h2>
+ <div class="card" style="margin:10px 0">
+   <h3>Technicians / Inspectors</h3>
+   <p class="muted">Manage technician / inspector profiles and active inspector selection.</p>
+   <button class="primary" onclick="technicianProfilesScreen()">TECHNICIAN / INSPECTOR PROFILES</button>
+ </div>
  <div class="card" style="margin:10px 0">
    <h3>Inspection Record Retention</h3>
    <p><b>Automatic deletion:</b> 14 months + 5 days after completion.</p>

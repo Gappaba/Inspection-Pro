@@ -1,17 +1,22 @@
-Inspection Pro v81 — Customer Vehicle / Equipment Database
+Inspection Pro v84 — Simplified Technician / Inspector Profiles
 
-Built from v80.
+Removed:
+- Certification / credential number
+- Annual / periodic inspection qualification
+- Brake-inspector qualification
+- Qualification dates
+- Expiration / review date
+- License information
+- Qualification-based finalization blocking
 
-Adds:
-- Multiple vehicles/equipment units per customer
-- Unit #, type, VIN/serial, year, make, model, plate/state, odometer source, axle count, notes
-- Vehicle/equipment types include truck, tractor, trailer, bus, digger derrick, bucket truck, self-loading reel trailer, crane, other
-- Vehicle inspection count and last-inspection date
-- Vehicle-specific history
-- Start a new inspection directly from a saved vehicle
-- Inspection Setup supports Saved Customer -> Saved Vehicle / Equipment -> autofill
-- Local/offline vehicle storage
-- Supabase vehicle sync
+Technician / inspector profiles retain:
+- Name
+- Email
+- Phone
+- Employee #
+- Inspector #
+- Notes
+- Active / inactive status
+- Active inspector selection and inspection autofill
 
-Run SUPABASE_VEHICLES.sql once in Supabase SQL Editor.
-All v80 retention, customer, report, discrepancy, Federal and Minnesota functionality is retained.
+All v82/v83 customer, vehicle, inspection, report, discrepancy and retention functionality is retained.
