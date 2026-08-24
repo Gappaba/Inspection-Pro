@@ -1,14 +1,17 @@
-Inspection Pro v80 — MIP / Federal DOT Retention
+Inspection Pro v81 — Customer Vehicle / Equipment Database
 
-Correction to v79.
+Built from v80.
 
-14 months + 5 days automatic deletion applies ONLY to:
-- Minnesota MIP completed inspections
-- U.S. Federal Periodic / Federal DOT completed inspections
+Adds:
+- Multiple vehicles/equipment units per customer
+- Unit #, type, VIN/serial, year, make, model, plate/state, odometer source, axle count, notes
+- Vehicle/equipment types include truck, tractor, trailer, bus, digger derrick, bucket truck, self-loading reel trailer, crane, other
+- Vehicle inspection count and last-inspection date
+- Vehicle-specific history
+- Start a new inspection directly from a saved vehicle
+- Inspection Setup supports Saved Customer -> Saved Vehicle / Equipment -> autofill
+- Local/offline vehicle storage
+- Supabase vehicle sync
 
-It does NOT automatically delete:
-- Customer records
-- Active drafts
-- Other/future inspection or report types
-
-SUPABASE_RETENTION.sql has been updated to enforce the same scope in Supabase.
+Run SUPABASE_VEHICLES.sql once in Supabase SQL Editor.
+All v80 retention, customer, report, discrepancy, Federal and Minnesota functionality is retained.

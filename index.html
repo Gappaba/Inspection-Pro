@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v80</title>
+<title>Inspection Pro v81</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -191,7 +191,7 @@ textarea{min-height:100px}
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV80";
+const KEY="inspectionProV81";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -397,7 +397,7 @@ const FED_SECTIONS=[
 ];
 
 function fresh(){
- return {startedAt:null,type:"",customer:"",customerContact:"",customerPhone:"",customerEmail:"",selectedCustomerId:"",unit:"",vin:"",year:"",make:"",model:"",odometer:"",odometerType:"Chassis",vehicleType:"Truck",plate:"",plateState:"MN",
+ return {startedAt:null,type:"",customer:"",customerContact:"",customerPhone:"",customerEmail:"",selectedCustomerId:"",selectedVehicleId:"",unit:"",vin:"",year:"",make:"",model:"",odometer:"",odometerType:"Chassis",vehicleType:"Truck",plate:"",plateState:"MN",
  location:"",cityStateZip:"",ownerName:"",ownerAddress:"",ownerCityStateZip:"",carrierName:"",carrierAddress:"",carrierCityStateZip:"",ownerDot:"",carrierDot:"",
  inspectorName:"",inspectorNo:"",decalNo:"",axles:2,axleConfig:[],brakeMeasurements:[],tireMeasurements:[],
  brakeControllerMakeModel:"",towPlate:"",towState:"",towGVWR:"",trailerPlate:"",trailerState:"",trailerGVWR:"",
@@ -564,6 +564,7 @@ function customerDatabaseScreen(query=""){
    </div>
    <div class="row">
      <button class="primary" onclick="selectCustomerForInspection('${c.id}')">NEW INSPECTION</button>
+     <button class="secondary" onclick="vehicleDatabaseScreen('${c.id}')">VEHICLES / EQUIPMENT</button>
      <button class="secondary" onclick="historyScreen('${String(c.company).replace(/'/g,"\\'")}')">HISTORY</button>
      <button class="secondary" onclick="editCustomerScreen('${c.id}')">EDIT</button>
      <button class="danger" onclick="deleteCustomerRecord('${c.id}')">DELETE</button>
@@ -628,7 +629,7 @@ function applyCustomerSelection(){
    customerPhone:c.phone||"",
    customerEmail:c.email||""
  };
- Object.assign(state,map);
+ Object.assign(state,map);state.selectedVehicleId="";
  save();
  setup(state.type);
 }
@@ -647,6 +648,74 @@ async function syncCustomersFromBackend(){
  }));
  saveCustomers([...byId.values()]);
 }
+
+
+const VEHICLE_DB_KEY="inspectionProVehiclesV1";
+
+function loadVehicles(){try{const x=JSON.parse(localStorage.getItem(VEHICLE_DB_KEY)||"[]");return Array.isArray(x)?x:[]}catch(e){return []}}
+function saveVehicles(list){localStorage.setItem(VEHICLE_DB_KEY,JSON.stringify(list||[]))}
+function newVehicleId(){return crypto?.randomUUID?crypto.randomUUID():"veh-"+Date.now()+"-"+Math.random().toString(16).slice(2)}
+function vehiclesForCustomer(customerId){return loadVehicles().filter(v=>v.customerId===customerId)}
+function upsertLocalVehicle(v){const list=loadVehicles(),i=list.findIndex(x=>x.id===v.id);if(i>=0)list[i]=v;else list.unshift(v);saveVehicles(list)}
+function vehicleInspectionRows(v){return loadCompletedInspections().filter(r=>(v.vin&&r.vin&&String(r.vin).toLowerCase()===String(v.vin).toLowerCase())||(v.unit&&r.unit&&String(r.unit).toLowerCase()===String(v.unit).toLowerCase()))}
+function vehicleInspectionCount(v){return vehicleInspectionRows(v).length}
+function vehicleLastInspection(v){const rows=vehicleInspectionRows(v).sort((a,b)=>new Date(b.completedAt||0)-new Date(a.completedAt||0));return rows[0]?.date||"—"}
+
+function vehicleDatabaseScreen(customerId="",query=""){
+ const customers=loadCustomers(), selected=customerId||customers[0]?.id||"", q=String(query||"").trim().toLowerCase();
+ const rows=loadVehicles().filter(v=>(!selected||v.customerId===selected)&&(!q||[v.unit,v.vin,v.year,v.make,v.model,v.plate].some(x=>String(x||"").toLowerCase().includes(q))));
+ appScreen.innerHTML=`${back("customerDatabaseScreen()")}
+ <div class="card"><h2>Customer Vehicles / Equipment</h2>
+ <label>Customer</label><select id="vehicleDbCustomer" onchange="vehicleDatabaseScreen(this.value)">${customers.map(c=>`<option value="${esc(c.id)}" ${c.id===selected?"selected":""}>${esc(c.company)}</option>`).join("")}</select>
+ <div class="row"><div style="flex:1"><input id="vehicleSearch" value="${esc(query)}" placeholder="Search unit, VIN, make, model, plate"></div><div><button class="primary" onclick="vehicleDatabaseScreen(document.getElementById('vehicleDbCustomer').value,document.getElementById('vehicleSearch').value)">SEARCH</button></div></div>
+ <button class="primary" onclick="editVehicleScreen('',document.getElementById('vehicleDbCustomer').value)">+ ADD VEHICLE / EQUIPMENT</button></div>
+ ${selected?rows.map(v=>`<div class="card"><h3>${esc(v.unit||"No Unit #")} — ${esc([v.year,v.make,v.model].filter(Boolean).join(" ")||v.vehicleType)}</h3>
+ <p>${v.vin?`VIN ${esc(v.vin)}<br>`:""}${v.plate?`Plate ${esc(v.plate)} ${esc(v.plateState||"")}`:""}</p>
+ <p class="muted">${esc(v.vehicleType||"")} • ${v.axles||2} axle${v.axles===1?"":"s"} • ${esc(v.odometerType||"Chassis")} odometer</p>
+ <div class="stats"><div class="stat"><strong>${vehicleInspectionCount(v)}</strong><div class="muted">Inspections</div></div><div class="stat"><strong style="font-size:14px">${esc(vehicleLastInspection(v))}</strong><div class="muted">Last inspection</div></div></div>
+ <div class="row"><button class="primary" onclick="selectVehicleForInspection('${v.id}')">NEW INSPECTION</button><button class="secondary" onclick="vehicleHistoryScreen('${v.id}')">HISTORY</button><button class="secondary" onclick="editVehicleScreen('${v.id}')">EDIT</button><button class="danger" onclick="deleteVehicleRecord('${v.id}')">DELETE</button></div></div>`).join(""):`<div class="card"><p class="muted">Select or add a customer first.</p></div>`}`;
+}
+
+function editVehicleScreen(id="",customerId=""){
+ const customers=loadCustomers(), v=loadVehicles().find(x=>x.id===id)||{id:newVehicleId(),customerId:customerId||customers[0]?.id||"",unit:"",vehicleType:"Truck",vin:"",year:"",make:"",model:"",plate:"",plateState:"MN",odometerType:"Chassis",axles:2,notes:""};
+ appScreen.innerHTML=`${back(`vehicleDatabaseScreen('${v.customerId||""}')`)}<div class="card"><h2>${id?"Edit":"Add"} Vehicle / Equipment</h2>
+ <input type="hidden" id="vehicleDbId" value="${esc(v.id)}"><label>Customer *</label><select id="vehicleCustomerId">${customers.map(c=>`<option value="${esc(c.id)}" ${c.id===v.customerId?"selected":""}>${esc(c.company)}</option>`).join("")}</select>
+ <div class="grid2"><div><label>Unit #</label><input id="vehUnit" value="${esc(v.unit)}"></div><div><label>Vehicle / Equipment Type</label><select id="vehType">${["Truck","Tractor","Trailer","Bus","Digger Derrick","Bucket Truck","Self Loading Reel Trailer","Crane","Other"].map(x=>`<option ${x===v.vehicleType?"selected":""}>${x}</option>`).join("")}</select></div></div>
+ <label>VIN / Serial Number</label><input id="vehVin" value="${esc(v.vin)}"><div class="grid2"><div><label>Year</label><input id="vehYear" value="${esc(v.year)}"></div><div><label>Make</label><input id="vehMake" value="${esc(v.make)}"></div></div>
+ <label>Model</label><input id="vehModel" value="${esc(v.model)}"><div class="grid2"><div><label>License Plate</label><input id="vehPlate" value="${esc(v.plate)}"></div><div><label>State</label><input id="vehPlateState" value="${esc(v.plateState)}"></div></div>
+ <div class="grid2"><div><label>Odometer Source</label><select id="vehOdometerType"><option>Chassis</option><option>Hub</option></select></div><div><label>Number of Axles</label><select id="vehAxles">${Array.from({length:8},(_,i)=>`<option ${v.axles===i+1?"selected":""}>${i+1}</option>`).join("")}</select></div></div>
+ <label>Notes</label><textarea id="vehNotes">${esc(v.notes)}</textarea><button class="primary" onclick="saveVehicleRecord()">SAVE VEHICLE / EQUIPMENT</button></div>`;
+ document.getElementById("vehOdometerType").value=v.odometerType||"Chassis";
+}
+
+function vehicleFromForm(){return{id:document.getElementById("vehicleDbId").value,customerId:document.getElementById("vehicleCustomerId").value,unit:document.getElementById("vehUnit").value.trim(),vehicleType:document.getElementById("vehType").value,vin:document.getElementById("vehVin").value.trim(),year:document.getElementById("vehYear").value.trim(),make:document.getElementById("vehMake").value.trim(),model:document.getElementById("vehModel").value.trim(),plate:document.getElementById("vehPlate").value.trim(),plateState:document.getElementById("vehPlateState").value.trim(),odometerType:document.getElementById("vehOdometerType").value,axles:+document.getElementById("vehAxles").value,notes:document.getElementById("vehNotes").value.trim(),updatedAt:new Date().toISOString()}}
+
+async function saveVehicleRecord(){
+ const v=vehicleFromForm();if(!v.customerId){alert("Select a customer.");return}if(!v.unit&&!v.vin){alert("Enter at least a Unit # or VIN.");return}upsertLocalVehicle(v);
+ if(backendConfigured()){try{const cli=await getBackendClient(),{data:{session}}=await cli.auth.getSession();if(session){const {error}=await cli.from("customer_vehicles").upsert({user_id:session.user.id,vehicle_id:v.id,customer_id:v.customerId,unit:v.unit,vehicle_type:v.vehicleType,vin:v.vin,year:v.year,make:v.make,model:v.model,plate:v.plate,plate_state:v.plateState,odometer_type:v.odometerType,axles:v.axles,notes:v.notes,updated_at:v.updatedAt},{onConflict:"user_id,vehicle_id"});if(error)throw error}}catch(e){console.warn(e)}}
+ alert("Vehicle / equipment saved.");vehicleDatabaseScreen(v.customerId)
+}
+
+async function deleteVehicleRecord(id){
+ const v=loadVehicles().find(x=>x.id===id);if(!v)return;if(!confirm("Delete this vehicle / equipment record? Completed inspections will not be deleted."))return;
+ saveVehicles(loadVehicles().filter(x=>x.id!==id));
+ if(backendConfigured()){try{const cli=await getBackendClient(),{data:{session}}=await cli.auth.getSession();if(session)await cli.from("customer_vehicles").delete().eq("user_id",session.user.id).eq("vehicle_id",id)}catch(e){}}
+ vehicleDatabaseScreen(v.customerId)
+}
+
+function vehicleHistoryScreen(id){
+ const v=loadVehicles().find(x=>x.id===id);if(!v)return;const rows=vehicleInspectionRows(v);
+ appScreen.innerHTML=`${back(`vehicleDatabaseScreen('${v.customerId}')`)}<div class="card"><h2>Vehicle Inspection History</h2><p><b>${esc(v.unit||"No Unit #")}</b><br>${esc([v.year,v.make,v.model].filter(Boolean).join(" "))}<br>${v.vin?`VIN ${esc(v.vin)}`:""}</p><p class="muted">${rows.length} completed inspection${rows.length===1?"":"s"}</p></div>${rows.length?rows.map(r=>`<div class="card"><h3>${esc(r.id)}</h3><p><b>${esc(r.type)}</b><br>${esc(r.date)} • ${esc(r.overall||"")}</p><button class="primary" onclick="reopenCompletedInspection('${String(r.id).replace(/'/g,"\\'")}')">OPEN</button></div>`).join(""):`<div class="card"><p class="muted">No completed inspections for this unit yet.</p></div>`}`;
+}
+
+function selectVehicleForInspection(id){
+ const v=loadVehicles().find(x=>x.id===id);if(!v)return;const c=loadCustomers().find(x=>x.id===v.customerId);state=fresh();state.selectedCustomerId=v.customerId;state.selectedVehicleId=v.id;
+ if(c){state.customer=c.company;state.carrierName=c.company;state.carrierAddress=c.address||"";state.carrierCityStateZip=c.cityStateZip||"";state.carrierDot=c.usdot||"";state.customerContact=c.contact||"";state.customerPhone=c.phone||"";state.customerEmail=c.email||""}
+ Object.assign(state,{unit:v.unit||"",vehicleType:v.vehicleType||"Truck",vin:v.vin||"",year:v.year||"",make:v.make||"",model:v.model||"",plate:v.plate||"",plateState:v.plateState||"MN",odometerType:v.odometerType||"Chassis",axles:v.axles||2});save();newInspection()
+}
+function vehicleOptionsHtml(customerId){return `<option value="">-- Select saved unit --</option>`+vehiclesForCustomer(customerId||"").map(v=>`<option value="${esc(v.id)}">${esc(v.unit||v.vin||"Vehicle")} — ${esc([v.year,v.make,v.model].filter(Boolean).join(" "))}</option>`).join("")}
+function applyVehicleSelection(){const id=document.getElementById("savedVehicleSelect")?.value;if(!id)return;const v=loadVehicles().find(x=>x.id===id);if(!v)return;state.selectedVehicleId=v.id;Object.assign(state,{unit:v.unit||"",vehicleType:v.vehicleType||"Truck",vin:v.vin||"",year:v.year||"",make:v.make||"",model:v.model||"",plate:v.plate||"",plateState:v.plateState||"MN",odometerType:v.odometerType||"Chassis",axles:v.axles||2});save();setup(state.type)}
+async function syncVehiclesFromBackend(){if(!backendConfigured())return;const cli=await getBackendClient(),{data:{session}}=await cli.auth.getSession();if(!session)return;const {data,error}=await cli.from("customer_vehicles").select("*").order("unit");if(error)throw error;const byId=new Map(loadVehicles().map(v=>[v.id,v]));(data||[]).forEach(r=>byId.set(r.vehicle_id,{id:r.vehicle_id,customerId:r.customer_id,unit:r.unit||"",vehicleType:r.vehicle_type||"Truck",vin:r.vin||"",year:r.year||"",make:r.make||"",model:r.model||"",plate:r.plate||"",plateState:r.plate_state||"",odometerType:r.odometer_type||"Chassis",axles:r.axles||2,notes:r.notes||"",updatedAt:r.updated_at||""}));saveVehicles([...byId.values()])}
 
 const BACKEND_CONFIG_KEY="inspectionProBackendV1";
 let backendClient=null;
@@ -868,6 +937,7 @@ async function backendSync(showAlert=true){
    const pushed=await backendPushAll();
    const pulled=await backendPullCompleted();
    await syncCustomersFromBackend();
+   await syncVehiclesFromBackend();
    const draftPulled=await backendPullDraft();
    localStorage.setItem("inspectionProLastBackendSync",new Date().toISOString());
    if(showAlert)alert(`Database sync complete.\nUploaded: ${pushed}\nDownloaded completed: ${pulled}${draftPulled?"\nRestored a remote draft.":""}`);
@@ -1310,6 +1380,7 @@ function home(){
    <div class="row">
      <button class="primary" onclick="editCustomerScreen()">+ ADD NEW CUSTOMER</button>
      <button class="secondary" onclick="customerDatabaseScreen()">CUSTOMER DATABASE</button>
+     <button class="secondary" onclick="vehicleDatabaseScreen()">VEHICLES / EQUIPMENT</button>
    </div>
  </div>
  <div class="cards">
@@ -1562,6 +1633,9 @@ function setup(type){
  <label>Saved Customer</label>
  <select id="savedCustomerSelect" onchange="applyCustomerSelection()">${customerOptionsHtml()}</select>
  <button type="button" class="secondary" style="width:100%;margin:-2px 0 8px" onclick="customerDatabaseScreen()">MANAGE CUSTOMERS</button>
+ <label>Saved Vehicle / Equipment</label>
+ <select id="savedVehicleSelect" onchange="applyVehicleSelection()">${vehicleOptionsHtml(state.selectedCustomerId)}</select>
+ <button type="button" class="secondary" style="width:100%;margin:-2px 0 8px" onclick="vehicleDatabaseScreen(state.selectedCustomerId)">MANAGE VEHICLES / EQUIPMENT</button>
  <label>Customer</label><input id="customer" value="${state.customer}">
  <div class="grid2">
    <div><label>Customer Contact</label><input id="customerContact" value="${state.customerContact||""}"></div>
@@ -1606,6 +1680,7 @@ function setup(type){
  <label>Number of Axles</label><select id="axles">${Array.from({length:state.type==="Minnesota MIP"?7:8},(_,i)=>`<option ${state.axles===i+1?"selected":""}>${i+1}</option>`).join("")}</select>
  <button class="primary" onclick="saveSetup()">CONTINUE →</button></div>`;
  if(state.selectedCustomerId&&document.getElementById("savedCustomerSelect"))document.getElementById("savedCustomerSelect").value=state.selectedCustomerId;
+ if(state.selectedVehicleId&&document.getElementById("savedVehicleSelect"))document.getElementById("savedVehicleSelect").value=state.selectedVehicleId;
  document.getElementById("vehicleType").value=state.vehicleType;
  document.getElementById("odometerType").value=state.odometerType||"Chassis";
 }
