@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v86</title>
+<title>Inspection Pro v87</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -174,6 +174,18 @@ textarea{min-height:100px}
 .mobile-more-menu.open{display:block}
 .mobile-more-menu button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;margin:2px 0;border:0;border-radius:11px;background:#fff;color:#0f172a;font-size:16px;font-weight:700}
 .mobile-more-menu button:active{background:#f1f5f9}.mobile-more-menu .menu-icon{width:28px;text-align:center;font-size:20px}
+
+.help-search{margin-bottom:12px}
+.help-section{margin:12px 0}
+.help-section h3{margin-bottom:8px}
+.help-topic{border:1px solid var(--border);border-radius:12px;margin:8px 0;background:#fff;overflow:hidden}
+.help-topic button{width:100%;border:0;background:#fff;color:#0f172a;text-align:left;padding:14px 16px;font-size:16px;font-weight:800;display:flex;justify-content:space-between;align-items:center}
+.help-topic button:active{background:#f8fafc}
+.help-body{display:none;padding:0 16px 16px;line-height:1.55}
+.help-body.open{display:block}
+.help-body ol,.help-body ul{padding-left:22px}
+.help-tag{display:inline-block;border-radius:999px;background:#eef2ff;padding:3px 8px;font-size:11px;font-weight:700;margin:2px 4px 2px 0}
+
 </style>
 </head>
 <body>
@@ -214,11 +226,12 @@ textarea{min-height:100px}
 <button onclick="closeMobileMore();technicianProfilesScreen()"><span class="menu-icon">🧰</span>Technicians</button>
 <button onclick="closeMobileMore();reportsScreen()"><span class="menu-icon">📊</span>Reports</button>
 <button onclick="closeMobileMore();settingsScreen()"><span class="menu-icon">⚙️</span>Settings</button>
+<button onclick="closeMobileMore();helpScreen()"><span class="menu-icon">❓</span>Help & Guides</button>
 </div>
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV86";
+const KEY="inspectionProV87";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -1591,6 +1604,191 @@ function mnFormWarningBanner(){
 function toggleMobileMore(){const m=document.getElementById("mobileMoreMenu");if(m)m.classList.toggle("open")}
 function closeMobileMore(){const m=document.getElementById("mobileMoreMenu");if(m)m.classList.remove("open")}
 document.addEventListener("click",e=>{const m=document.getElementById("mobileMoreMenu");if(!m||!m.classList.contains("open"))return;if(e.target.closest(".mobile-more-menu")||e.target.closest(".mobile-nav button:last-child"))return;m.classList.remove("open")});
+
+function toggleHelpTopic(id){
+ const el=document.getElementById(id);
+ if(el)el.classList.toggle("open");
+}
+function helpTopic(title,body,tags=[]){
+ const id="help-"+Math.random().toString(36).slice(2);
+ return `<div class="help-topic" data-help-title="${esc(title.toLowerCase())}">
+   <button onclick="toggleHelpTopic('${id}')"><span>${title}</span><span>▾</span></button>
+   <div class="help-body" id="${id}">
+     ${tags.length?`<div>${tags.map(t=>`<span class="help-tag">${esc(t)}</span>`).join("")}</div>`:""}
+     ${body}
+   </div>
+ </div>`;
+}
+function filterHelpTopics(){
+ const q=(document.getElementById("helpSearch")?.value||"").trim().toLowerCase();
+ document.querySelectorAll(".help-topic").forEach(el=>{
+   const txt=(el.innerText||"").toLowerCase();
+   el.style.display=!q||txt.includes(q)?"":"none";
+ });
+}
+function helpScreen(){
+ const commonIssues=[
+   helpTopic("App is showing old information after an update",`
+     <p>The iPhone may still be using a cached version of Inspection Pro.</p>
+     <ol>
+       <li>Close Inspection Pro completely.</li>
+       <li>Open the GitHub Pages address in Safari.</li>
+       <li>Refresh the page.</li>
+       <li>Reopen the Home Screen app.</li>
+       <li>If the old version remains, remove the Home Screen app and add it again from Safari.</li>
+     </ol>`,["iPhone","Update","Cache"]),
+   helpTopic("Cannot sign in to database sync",`
+     <ol>
+       <li>Open Settings → Database / Sync Settings.</li>
+       <li>Confirm the Supabase Project/API URL ends in <b>.supabase.co</b> and does not include /rest/v1 or /auth/v1.</li>
+       <li>Confirm the Publishable Key is being used, not a secret/service-role key.</li>
+       <li>In Supabase, confirm Authentication → URL Configuration uses the live GitHub Pages address.</li>
+       <li>If Supabase says email rate limit exceeded, wait before requesting another link.</li>
+     </ol>`,["Supabase","Login","Sync"]),
+   helpTopic("Inspection will not finalize",`
+     <ul>
+       <li>Check that all required inspection items have an answer.</li>
+       <li>Failed items require a written discrepancy and at least one photo.</li>
+       <li>Minnesota MIP requires the compliance question to be answered before signing.</li>
+       <li>Make sure the signature has been entered.</li>
+     </ul>`,["Inspection","Finalize"]),
+   helpTopic("Photo will not attach to a discrepancy",`
+     <ul>
+       <li>Allow camera/photo access when iPhone asks.</li>
+       <li>Try using the camera directly instead of selecting a very large existing photo.</li>
+       <li>Up to 4 photos can be attached to one discrepancy.</li>
+       <li>If cellular service is poor, photos still save locally and can sync later.</li>
+     </ul>`,["Photo","Discrepancy"]),
+   helpTopic("Draft disappeared or will not resume",`
+     <p>Drafts are stored locally on the current device until sync is available.</p>
+     <ul>
+       <li>Use Drafts from the bottom menu.</li>
+       <li>A deleted draft cannot be recovered from local storage.</li>
+       <li>Completed inspections are stored separately from drafts.</li>
+       <li>Do not clear Safari website data if unsynced records are still needed.</li>
+     </ul>`,["Drafts","Offline"]),
+   helpTopic("Report will not save or share",`
+     <ul>
+       <li>Wait a moment if the PDF library is still loading.</li>
+       <li>Use Print Report → Save as PDF as a fallback.</li>
+       <li>On iPhone, Share / Email PDF uses the Apple Share Sheet.</li>
+       <li>Minnesota MIP uses the actual Minnesota form workflow.</li>
+     </ul>`,["PDF","Report","Email"]),
+   helpTopic("GPS location will not fill",`
+     <ul>
+       <li>Location services must be enabled for Safari / Inspection Pro.</li>
+       <li>The app must be opened from the HTTPS GitHub Pages address or Home Screen app.</li>
+       <li>You can always type the inspection location manually.</li>
+     </ul>`,["GPS","Location"]),
+   helpTopic("Customer or vehicle does not appear",`
+     <ul>
+       <li>Check that you are looking under the correct customer.</li>
+       <li>Search by company, contact, USDOT, unit, VIN, make, model, or plate.</li>
+       <li>If database sync is not connected, records created on another device will not appear yet.</li>
+     </ul>`,["Customers","Vehicles"])
+ ];
+
+ const guides=[
+   helpTopic("Add a new customer",`
+     <ol>
+       <li>Open More → Customers.</li>
+       <li>Tap <b>Add Customer</b>.</li>
+       <li>Enter company/customer name.</li>
+       <li>Add contact name, phone, email, address, USDOT, and notes as needed.</li>
+       <li>Tap <b>Save Customer</b>.</li>
+     </ol>
+     <p>Multiple customer names may share the same USDOT number.</p>`,["Customers","Setup"]),
+   helpTopic("Add a vehicle or equipment unit",`
+     <ol>
+       <li>Open More → Customers.</li>
+       <li>Open the customer.</li>
+       <li>Choose <b>Vehicles / Equipment</b>.</li>
+       <li>Tap <b>Add Vehicle / Equipment</b>.</li>
+       <li>Enter Unit #, type, VIN/serial, year, make, model, plate, odometer source, axle count, and notes.</li>
+       <li>Tap <b>Save Vehicle / Equipment</b>.</li>
+     </ol>`,["Vehicles","Equipment"]),
+   helpTopic("Start an inspection from a saved customer and unit",`
+     <ol>
+       <li>Open the customer record.</li>
+       <li>Open Vehicles / Equipment.</li>
+       <li>Select the unit and tap <b>New Inspection</b>.</li>
+       <li>Choose Federal Periodic or Minnesota MIP.</li>
+       <li>Review the auto-filled vehicle/customer information before continuing.</li>
+     </ol>`,["Inspection","Customers","Vehicles"]),
+   helpTopic("Start an inspection without a saved unit",`
+     <ol>
+       <li>Tap <b>New</b> in the bottom menu.</li>
+       <li>Select Federal Periodic or Minnesota MIP.</li>
+       <li>Choose a saved customer if available, or type customer information manually.</li>
+       <li>Enter vehicle details and continue.</li>
+     </ol>`,["Inspection"]),
+   helpTopic("Document a failed item",`
+     <ol>
+       <li>Tap Fail on the inspection item.</li>
+       <li>Describe the condition clearly.</li>
+       <li>Add at least one photo; up to four may be attached.</li>
+       <li>Save the discrepancy and continue.</li>
+       <li>After finalization, use <b>Discrepancy Report</b> to view, save, print, or share the report with photos.</li>
+     </ol>`,["Fail","Discrepancy","Photos"]),
+   helpTopic("Complete and send an inspection report",`
+     <ol>
+       <li>Finish all inspection items.</li>
+       <li>Review the inspection.</li>
+       <li>Sign and finalize.</li>
+       <li>Choose View Report, Save PDF, Print Report, or Share / Email PDF.</li>
+     </ol>`,["Reports","PDF"]),
+   helpTopic("Add a technician / inspector",`
+     <ol>
+       <li>Open More → Technicians.</li>
+       <li>Tap <b>Add Technician / Inspector</b>.</li>
+       <li>Enter name, email, phone, employee #, inspector #, notes, and active status.</li>
+       <li>Save the profile.</li>
+       <li>Set the appropriate profile as the active inspector.</li>
+     </ol>`,["Technicians","Inspectors"]),
+   helpTopic("Delete a draft",`
+     <ol>
+       <li>Tap <b>Drafts</b> in the bottom menu.</li>
+       <li>Open the draft list.</li>
+       <li>Tap <b>Delete Draft</b>.</li>
+       <li>Confirm deletion.</li>
+     </ol>
+     <p>Deleting a draft does not delete completed inspections and does not consume a final inspection number.</p>`,["Drafts"]),
+   helpTopic("Sync with the database",`
+     <ol>
+       <li>Open More → Settings.</li>
+       <li>Open Database / Sync Settings.</li>
+       <li>Confirm you are signed in.</li>
+       <li>Tap <b>Sync Now</b>.</li>
+     </ol>
+     <p>The app remains usable offline and attempts to sync again when connectivity returns.</p>`,["Database","Sync"]),
+   helpTopic("Find prior inspection history",`
+     <ul>
+       <li>Use History from the bottom menu to search all completed inspections.</li>
+       <li>Customer records show customer-specific history.</li>
+       <li>Vehicle records show unit-specific inspection history.</li>
+       <li>Search by report number, customer, unit, VIN, plate, inspector, type, or result.</li>
+     </ul>`,["History","Search"]),
+   helpTopic("Understanding automatic retention",`
+     <p>Completed Minnesota MIP and Federal/DOT periodic inspections are automatically deleted after <b>14 months + 5 days</b>.</p>
+     <p>Customer records, vehicle records, technician profiles, active drafts, and other future report types are not covered by this automatic deletion rule.</p>`,["Retention","Records"])
+ ];
+
+ appScreen.innerHTML=`${back("home()")}
+ <div class="card">
+   <h2>Help & Guides</h2>
+   <p class="muted">Troubleshooting and step-by-step help for common Inspection Pro tasks.</p>
+   <input class="help-search" id="helpSearch" placeholder="Search help..." oninput="filterHelpTopics()">
+ </div>
+ <div class="card help-section">
+   <h3>Common Issues</h3>
+   ${commonIssues.join("")}
+ </div>
+ <div class="card help-section">
+   <h3>How-To Guides</h3>
+   ${guides.join("")}
+ </div>`;
+}
+
 function home(){
  normalizeState();
  state.stage="home";
