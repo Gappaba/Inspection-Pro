@@ -1,22 +1,14 @@
-Inspection Pro v84 — Simplified Technician / Inspector Profiles
+Inspection Pro v85 — Technician Access Update
 
-Removed:
-- Certification / credential number
-- Annual / periodic inspection qualification
-- Brake-inspector qualification
-- Qualification dates
-- Expiration / review date
-- License information
-- Qualification-based finalization blocking
+Built from v84.
 
-Technician / inspector profiles retain:
-- Name
-- Email
-- Phone
-- Employee #
-- Inspector #
-- Notes
-- Active / inactive status
-- Active inspector selection and inspection autofill
+Technician / inspector access is now easier to find:
+- Added TECHNICIANS to the desktop sidebar.
+- Added Techs to the iPhone bottom navigation.
+- Added a Home screen Technicians / Inspectors card.
+- Home card includes:
+  + ADD TECHNICIAN / INSPECTOR
+  MANAGE TECHNICIANS
+- Existing Settings -> Technician / Inspector Profiles path remains available.
 
-All v82/v83 customer, vehicle, inspection, report, discrepancy and retention functionality is retained.
+All simplified v84 technician fields remain unchanged.
