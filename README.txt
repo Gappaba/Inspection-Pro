@@ -1,18 +1,24 @@
-Inspection Pro v73 — Database / Sync build
+Inspection Pro v75 — Discrepancy Reports
 
-Built from v72 iPhone build.
+Built from v74.
 
-Added:
-- Supabase/PostgreSQL backend support.
-- Email magic-link authentication.
-- Row-level private data access.
-- Push/pull sync of drafts and completed inspections.
-- Full inspection snapshots stored in the database.
-- Automatic sync attempt when internet connectivity returns.
-- Database-generated YEAR-#### inspection numbers when signed in/online.
-- Offline local fallback retained.
-- Database status and Sync Now controls in Settings.
-- SUPABASE_SETUP.sql included.
-
-The app remains usable without a database connection.
-A live backend exists only after a Supabase project is created and connected in Settings.
+New discrepancy workflow:
+- Failed inspection items still require a written discrepancy and photo.
+- Up to 4 photos can now be attached to each discrepancy.
+- Photos can be removed before saving the failed item.
+- Completed failed inspections show a DISCREPANCY REPORT button.
+- Discrepancy report includes:
+  inspection number/date,
+  customer/unit/vehicle/VIN/plate,
+  inspector,
+  each failed section/item,
+  discrepancy description,
+  all attached photos,
+  total discrepancy count.
+- Discrepancy report can be:
+  viewed,
+  saved as PDF,
+  printed,
+  shared/emailed as a PDF on iPhone.
+- Existing v74 inspection report Save/Print/Share actions retained.
+- v73 Supabase database/sync support retained.

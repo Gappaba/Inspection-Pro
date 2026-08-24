@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v73</title>
+<title>Inspection Pro v75</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -139,6 +139,20 @@ textarea{min-height:100px}
   input,select,textarea{font-size:16px!important}
 }
 
+
+.photo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0}
+.photo-card{border:1px solid var(--border);border-radius:10px;padding:7px;background:#fff}
+.photo-card .photo-preview{width:100%;height:180px;max-height:none;object-fit:cover;margin:0}
+@media(max-width:680px){.photo-grid{grid-template-columns:1fr 1fr}.photo-card .photo-preview{height:145px}}
+
+
+.discrepancy-report{max-width:8.5in;margin:0 auto}
+.disc-item{border:1px solid #777;padding:10px;margin:10px 0;break-inside:avoid}
+.disc-item h3{margin:0 0 6px}
+.disc-photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.disc-photo-grid img{width:100%;max-height:300px;object-fit:contain;border:1px solid #aaa}
+@media print{.disc-item{break-inside:avoid}.disc-photo-grid img{max-height:3.2in}}
+
 </style>
 </head>
 <body>
@@ -175,7 +189,7 @@ textarea{min-height:100px}
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV73";
+const KEY="inspectionProV75";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -1435,18 +1449,58 @@ function answer(a){const it=flatItems()[state.index];state.results=state.results
 
 function failScreen(){
  const it=flatItems()[state.index];
- appScreen.innerHTML=`${back("showItem()")}<div class="card"><h2 class="danger">Document Deficiency</h2><p><b>${it.section}</b><br>${it.name}</p>
+ state.pendingPhotos=[];
+ appScreen.innerHTML=`${back("showItem()")}<div class="card">
+ <h2 class="danger">Document Deficiency</h2><p><b>${it.section}</b><br>${it.name}</p>
  <label>Discrepancy *</label><textarea id="desc" rows="4" placeholder="Describe exactly what was found..."></textarea>
- <label>Photo *</label><input id="photoInput" type="file" accept="image/*" capture="environment" onchange="capturePhoto(event)">
- <div id="photoHolder"></div><button class="primary" onclick="saveFail()">SAVE & NEXT →</button></div>`;
- state.pendingPhoto="";
+ <label>Photos * <span class="muted">(at least 1, up to 4)</span></label>
+ <input id="photoInput" type="file" accept="image/*" capture="environment" onchange="capturePhoto(event)">
+ <button class="secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('photoInput').click()">📷 ADD PHOTO</button>
+ <div id="photoHolder" class="photo-grid"></div>
+ <button class="primary" onclick="saveFail()">SAVE & NEXT →</button></div>`;
+}
+function renderPendingPhotos(){
+ const holder=document.getElementById("photoHolder");if(!holder)return;
+ holder.innerHTML=(state.pendingPhotos||[]).map((p,i)=>`
+   <div class="photo-card">
+     <img class="photo-preview" src="${p}">
+     <button class="secondary" style="width:100%;margin-top:4px" onclick="removePendingPhoto(${i})">REMOVE</button>
+   </div>`).join("");
+}
+function removePendingPhoto(i){
+ state.pendingPhotos=(state.pendingPhotos||[]).filter((_,x)=>x!==i);
+ renderPendingPhotos();
 }
 function capturePhoto(e){
  const f=e.target.files[0];if(!f)return;
- const reader=new FileReader();reader.onload=()=>resizeImage(reader.result, data=>{state.pendingPhoto=data;document.getElementById("photoHolder").innerHTML=`<img class="photo-preview" src="${data}">`;});reader.readAsDataURL(f);
+ if((state.pendingPhotos||[]).length>=4){alert("Maximum 4 photos per discrepancy.");e.target.value="";return}
+ const reader=new FileReader();
+ reader.onload=()=>resizeImage(reader.result,data=>{
+   state.pendingPhotos=state.pendingPhotos||[];
+   state.pendingPhotos.push(data);
+   state.pendingPhoto=data;
+   renderPendingPhotos();
+   e.target.value="";
+ });
+ reader.readAsDataURL(f);
 }
-function resizeImage(src,cb){const img=new Image();img.onload=()=>{const max=900,scale=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=img.width*scale;c.height=img.height*scale;c.getContext("2d").drawImage(img,0,0,c.width,c.height);cb(c.toDataURL("image/jpeg",.72))};img.src=src}
-function saveFail(){const desc=document.getElementById("desc").value.trim();if(!desc||!state.pendingPhoto){alert("A discrepancy and photo are required before continuing.");return}const it=flatItems()[state.index];state.results=state.results.filter(r=>!(r.item.section===it.section&&r.item.name===it.name));state.results.push({item:it,answer:"FAIL",description:desc,photo:state.pendingPhoto});state.pendingPhoto="";state.index++;save();showItem()}
+function resizeImage(src,cb){
+ const img=new Image();img.onload=()=>{
+   const max=1200,scale=Math.min(1,max/Math.max(img.width,img.height));
+   const c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);
+   c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+   cb(c.toDataURL("image/jpeg",.72))
+ };img.src=src
+}
+function saveFail(){
+ const desc=document.getElementById("desc").value.trim();
+ const photos=state.pendingPhotos||[];
+ if(!desc||!photos.length){alert("A discrepancy and at least one photo are required before continuing.");return}
+ const it=flatItems()[state.index];
+ state.results=state.results.filter(r=>!(r.item.section===it.section&&r.item.name===it.name));
+ state.results.push({item:it,answer:"FAIL",description:desc,photo:photos[0],photos:[...photos]});
+ state.pendingPhoto="";state.pendingPhotos=[];state.index++;save();showItem()
+}
 
 
 
@@ -1643,12 +1697,215 @@ async function saveSignature(){
  await ensureFinalInspectionNumber();
  state.signature=canvas.toDataURL("image/png");state.completedAt=new Date().toISOString();state.report={id:state.inspectionNumber,date:new Date().toLocaleDateString(),result:state.results.some(r=>r.answer==="FAIL")?"FAIL":"PASS"};state.stage="final";save();archiveCompletedInspection();backendSyncSilent();finalScreen()}
 
+
+
+function discrepancyFilename(){
+ const no=state.inspectionNumber||state.report?.id||"inspection";
+ const unit=(state.unit||state.vin||"vehicle").replace(/[^a-zA-Z0-9_-]+/g,"-");
+ return `${no}_${unit}_Discrepancy-Report.pdf`;
+}
+function failedInspectionItems(){
+ return (state.results||[]).filter(r=>r.answer==="FAIL");
+}
+function discrepancyPhotos(r){
+ if(Array.isArray(r.photos)&&r.photos.length)return r.photos;
+ return r.photo?[r.photo]:[];
+}
+function discrepancyReportScreen(){
+ const fails=failedInspectionItems();
+ if(!fails.length){alert("This inspection has no discrepancies.");return}
+ appScreen.innerHTML=`${back("finalScreen()")}
+ <div class="card no-print">
+   <h2>Discrepancy Report</h2>
+   <div class="row">
+     <button class="secondary" onclick="saveDiscrepancyPdf()">SAVE PDF</button>
+     <button class="secondary" onclick="window.print()">PRINT</button>
+     <button class="primary" onclick="shareDiscrepancyPdf()">SHARE / EMAIL PDF</button>
+   </div>
+ </div>
+ <div class="report discrepancy-report">
+   <h2 style="text-align:center">INSPECTION DISCREPANCY REPORT</h2>
+   <table>
+     <tr><th>Inspection #</th><td>${esc(state.inspectionNumber||state.report?.id||"")}</td><th>Date</th><td>${esc(state.report?.date||"")}</td></tr>
+     <tr><th>Customer</th><td>${esc(state.customer||state.carrierName||"")}</td><th>Unit</th><td>${esc(state.unit||"")}</td></tr>
+     <tr><th>Vehicle</th><td>${esc([state.year,state.make,state.model].filter(Boolean).join(" "))}</td><th>VIN</th><td>${esc(state.vin||"")}</td></tr>
+     <tr><th>Plate</th><td>${esc([state.plate,state.plateState].filter(Boolean).join(" "))}</td><th>Inspector</th><td>${esc(state.inspectorName||"")}</td></tr>
+   </table>
+   ${fails.map((r,i)=>`
+     <div class="disc-item">
+       <h3>Discrepancy ${i+1}</h3>
+       <p><b>${esc(r.item?.section||"")}</b><br>${esc(r.item?.name||"")}</p>
+       <p><b>Condition:</b> ${esc(r.description||r.note||"")}</p>
+       <div class="disc-photo-grid">${discrepancyPhotos(r).map(p=>`<img src="${p}" alt="Discrepancy photo">`).join("")}</div>
+     </div>`).join("")}
+   <p><b>Total discrepancies:</b> ${fails.length}</p>
+ </div>`;
+}
+async function dataUrlToPdfImage(pdf,dataUrl){
+ const base64=String(dataUrl).split(",")[1]||"";
+ const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+ return /^data:image\/png/i.test(dataUrl)?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);
+}
+function wrapPdfText(text,font,size,maxWidth){
+ const words=String(text||"").split(/\s+/), lines=[];let current="";
+ for(const word of words){
+   const test=current?current+" "+word:word;
+   if(font.widthOfTextAtSize(test,size)<=maxWidth)current=test;
+   else{if(current)lines.push(current);current=word}
+ }
+ if(current)lines.push(current);return lines;
+}
+async function discrepancyPdfBlob(){
+ if(!window.PDFLib)throw new Error("PDF library is still loading. Try again in a moment.");
+ const fails=failedInspectionItems();
+ if(!fails.length)throw new Error("No discrepancies to report.");
+ const {PDFDocument,StandardFonts,rgb}=PDFLib;
+ const pdf=await PDFDocument.create();
+ const font=await pdf.embedFont(StandardFonts.Helvetica);
+ const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
+ let page=pdf.addPage([612,792]), y=752;
+ const margin=38, width=536;
+ const newPage=()=>{page=pdf.addPage([612,792]);y=752};
+ const line=(txt,size=9,b=false,gap=4)=>{
+   const f=b?bold:font;
+   for(const l of wrapPdfText(txt,f,size,width)){
+     if(y<45)newPage();
+     page.drawText(l,{x:margin,y,size,font:f});y-=size+gap;
+   }
+ };
+ line("INSPECTION DISCREPANCY REPORT",15,true,7);
+ line(`Inspection #: ${state.inspectionNumber||state.report?.id||""}`,9,true);
+ line(`Date: ${state.report?.date||""}    Customer: ${state.customer||state.carrierName||""}`);
+ line(`Unit: ${state.unit||""}    VIN: ${state.vin||""}`);
+ line(`Vehicle: ${[state.year,state.make,state.model].filter(Boolean).join(" ")}    Plate: ${state.plate||""} ${state.plateState||""}`);
+ line(`Inspector: ${state.inspectorName||""}`);
+ y-=8;
+ for(let i=0;i<fails.length;i++){
+   const r=fails[i];
+   if(y<250)newPage();
+   line(`Discrepancy ${i+1}`,11,true);
+   line(`${r.item?.section||""} - ${r.item?.name||""}`,9,true);
+   line(`Condition: ${r.description||r.note||""}`,9,false,4);
+   y-=5;
+   for(const photo of discrepancyPhotos(r)){
+     if(y<230)newPage();
+     try{
+       const img=await dataUrlToPdfImage(pdf,photo);
+       const dims=img.scale(1);
+       const maxW=250,maxH=190;
+       const scale=Math.min(maxW/dims.width,maxH/dims.height,1);
+       const w=dims.width*scale,h=dims.height*scale;
+       page.drawImage(img,{x:margin,y:y-h,width:w,height:h});
+       y-=h+10;
+     }catch(e){line("[Photo could not be embedded]",8)}
+   }
+   y-=8;
+ }
+ line(`Total discrepancies: ${fails.length}`,9,true);
+ return new Blob([await pdf.save()],{type:"application/pdf"});
+}
+async function saveDiscrepancyPdf(){
+ try{
+   const blob=await discrepancyPdfBlob(),url=URL.createObjectURL(blob);
+   const a=document.createElement("a");a.href=url;a.download=discrepancyFilename();
+   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ }catch(e){alert("Could not create discrepancy PDF: "+(e.message||String(e)))}
+}
+async function shareDiscrepancyPdf(){
+ try{
+   const blob=await discrepancyPdfBlob();
+   const file=new File([blob],discrepancyFilename(),{type:"application/pdf"});
+   if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){
+     await navigator.share({title:`Discrepancy Report ${state.inspectionNumber||""}`,text:"Inspection discrepancy report with photos.",files:[file]});
+   }else{
+     const url=URL.createObjectURL(blob),a=document.createElement("a");
+     a.href=url;a.download=discrepancyFilename();document.body.appendChild(a);a.click();a.remove();
+     setTimeout(()=>URL.revokeObjectURL(url),1500);
+     alert("The discrepancy PDF was saved. Attach it to your email from this device.");
+   }
+ }catch(e){if(e?.name!=="AbortError")alert("Could not share discrepancy PDF: "+(e.message||String(e)))}
+}
+
+function safeReportFilename(){
+ const no=state.inspectionNumber||state.report?.id||"inspection";
+ const unit=(state.unit||state.vin||"vehicle").replace(/[^a-zA-Z0-9_-]+/g,"-");
+ const type=state.type==="Minnesota MIP"?"Minnesota-MIP":"Federal-Inspection";
+ return `${no}_${unit}_${type}.pdf`;
+}
+function printInspectionReport(){
+ if(state.type==="Minnesota MIP") nativeMIPForm();
+ else reportScreen();
+ setTimeout(()=>window.print(),500);
+}
+async function federalReportPdfBlob(){
+ if(!window.PDFLib)throw new Error("PDF library is still loading. Try again in a moment.");
+ const {PDFDocument,StandardFonts}=PDFLib;
+ const pdf=await PDFDocument.create();
+ let page=pdf.addPage([612,792]);
+ const font=await pdf.embedFont(StandardFonts.Helvetica);
+ const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
+ let y=756;
+ function line(txt,size=9,b=false){
+   if(y<40){page=pdf.addPage([612,792]);y=756;}
+   page.drawText(String(txt||"").slice(0,110),{x:36,y,size,font:b?bold:font});
+   y-=size+5;
+ }
+ line("INSPECTION PRO - U.S. FEDERAL PERIODIC INSPECTION",13,true);
+ line(`Inspection #: ${state.inspectionNumber||state.report?.id||""}`,10,true);
+ line(`Date: ${state.report?.date||new Date().toLocaleDateString()}`);
+ line(`Customer: ${state.customer||""}`);
+ line(`Unit: ${state.unit||""}   VIN: ${state.vin||""}`);
+ line(`Vehicle: ${[state.year,state.make,state.model].filter(Boolean).join(" ")}`);
+ line(`License: ${state.plate||""} ${state.plateState||""}`);
+ line(`Inspector: ${state.inspectorName||""}`);
+ line(`Result: ${state.report?.result||""}`,11,true);
+ y-=6; line("Inspection Items",10,true);
+ (state.results||[]).forEach(r=>{
+   line(`${r.answer||""} - ${r.label||r.item||r.name||""}`);
+   if(r.note)line(`  Note: ${r.note}`,8);
+ });
+ return new Blob([await pdf.save()],{type:"application/pdf"});
+}
+async function completedReportPdfBlob(){
+ if(state.type==="Minnesota MIP"){
+   if(typeof buildCompletedMinnesotaPdfBlob==="function")return await buildCompletedMinnesotaPdfBlob();
+   throw new Error("Use VIEW ACTUAL MINNESOTA PDF, then Share or Print from the PDF viewer.");
+ }
+ return await federalReportPdfBlob();
+}
+async function saveInspectionPdf(){
+ try{
+   const blob=await completedReportPdfBlob(),url=URL.createObjectURL(blob);
+   const a=document.createElement("a");a.href=url;a.download=safeReportFilename();
+   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ }catch(e){alert("Could not create PDF: "+(e.message||String(e))+"\n\nYou can still use PRINT REPORT and choose Save as PDF.");}
+}
+async function shareInspectionPdf(){
+ try{
+   const blob=await completedReportPdfBlob();
+   const file=new File([blob],safeReportFilename(),{type:"application/pdf"});
+   if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){
+     await navigator.share({title:`Inspection ${state.inspectionNumber||""}`,text:`Completed ${state.type||"inspection"} report.`,files:[file]});
+   }else{
+     const url=URL.createObjectURL(blob),a=document.createElement("a");
+     a.href=url;a.download=safeReportFilename();document.body.appendChild(a);a.click();a.remove();
+     setTimeout(()=>URL.revokeObjectURL(url),1500);
+     alert("PDF saved. Attach it to your email from this device.");
+   }
+ }catch(e){if(e?.name!=="AbortError")alert("Could not share PDF: "+(e.message||String(e)));}
+}
+
 function finalScreen(){
  const failed=state.report.result==="FAIL";
  appScreen.innerHTML=`<div class="card"><h2>Inspection Finalized</h2><p><b>${state.report.id}</b></p><h2 class="${failed?"danger":"success"}">${state.report.result}</h2>
  ${state.type==="Minnesota MIP"?'<button class="primary" style="margin-bottom:10px" onclick="nativeMIPForm()">VIEW ACTUAL MINNESOTA PDF</button>':''}
- <button class="secondary" style="width:100%;margin-bottom:10px" onclick="reportScreen()">VIEW STANDARD REPORT</button>
- ${failed?`<button class="secondary" style="width:100%;margin-top:4px" onclick="reinspection()">🔄 START REINSPECTION</button>`:""}
+ <button class="secondary" style="width:100%;margin-bottom:10px" onclick="reportScreen()">VIEW REPORT</button>
+ <button class="secondary" style="width:100%;margin-bottom:10px" onclick="saveInspectionPdf()">SAVE PDF</button>
+ <button class="secondary" style="width:100%;margin-bottom:10px" onclick="printInspectionReport()">PRINT REPORT</button>
+ <button class="primary" style="margin-bottom:10px" onclick="shareInspectionPdf()">SHARE / EMAIL PDF</button>
+ ${failed?`
+ <button class="primary" style="margin-bottom:10px" onclick="discrepancyReportScreen()">📷 DISCREPANCY REPORT</button>
+ <button class="secondary" style="width:100%;margin-top:4px" onclick="reinspection()">🔄 START REINSPECTION</button>`:""}
  </div>`;
 }
 
