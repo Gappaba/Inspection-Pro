@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v85</title>
+<title>Inspection Pro v86</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -110,7 +110,7 @@ textarea{min-height:100px}
   .stat .muted{font-size:10px}
   .mobile-nav{
     display:grid!important;
-    grid-template-columns:repeat(7,1fr);
+    grid-template-columns:repeat(5,1fr);
     position:fixed;
     left:0;right:0;bottom:0;z-index:100;
     padding:7px 6px calc(7px + env(safe-area-inset-bottom));
@@ -169,6 +169,11 @@ textarea{min-height:100px}
   .customer-big-action .icon{font-size:30px}
 }
 
+
+.mobile-more-menu{position:fixed;right:12px;bottom:76px;width:min(290px,calc(100vw - 24px));background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 36px rgba(15,23,42,.22);padding:10px;z-index:1000;display:none}
+.mobile-more-menu.open{display:block}
+.mobile-more-menu button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;margin:2px 0;border:0;border-radius:11px;background:#fff;color:#0f172a;font-size:16px;font-weight:700}
+.mobile-more-menu button:active{background:#f1f5f9}.mobile-more-menu .menu-icon{width:28px;text-align:center;font-size:20px}
 </style>
 </head>
 <body>
@@ -198,18 +203,22 @@ textarea{min-height:100px}
 </div>
 </div>
 <div class="mobile-nav">
-<button onclick="home()">🏠<br>Home</button>
-<button onclick="newInspection()">＋<br>New</button>
-<button onclick="drafts()">📝<br>Drafts</button>
-<button onclick="historyScreen()">📋<br>History</button>
-<button onclick="customerDatabaseScreen()">👥<br>Customers</button>
-<button onclick="technicianProfilesScreen()">🧰<br>Techs</button>
-<button onclick="settingsScreen()">⚙️<br>Settings</button>
+<button onclick="closeMobileMore();home()">🏠<br>Home</button>
+<button onclick="closeMobileMore();newInspection()">＋<br>New</button>
+<button onclick="closeMobileMore();drafts()">📝<br>Drafts</button>
+<button onclick="closeMobileMore();historyScreen()">📋<br>History</button>
+<button onclick="toggleMobileMore()">☰<br>More</button>
+</div>
+<div id="mobileMoreMenu" class="mobile-more-menu">
+<button onclick="closeMobileMore();customerDatabaseScreen()"><span class="menu-icon">👥</span>Customers</button>
+<button onclick="closeMobileMore();technicianProfilesScreen()"><span class="menu-icon">🧰</span>Technicians</button>
+<button onclick="closeMobileMore();reportsScreen()"><span class="menu-icon">📊</span>Reports</button>
+<button onclick="closeMobileMore();settingsScreen()"><span class="menu-icon">⚙️</span>Settings</button>
 </div>
 <script async src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script>
 const appScreen=document.getElementById("screen");
-const KEY="inspectionProV85";
+const KEY="inspectionProV86";
 
 const MN_SECTIONS=[
 ["1. BRAKE SYSTEM",[
@@ -1579,6 +1588,9 @@ function mnFormWarningBanner(){
  return "";
 }
 
+function toggleMobileMore(){const m=document.getElementById("mobileMoreMenu");if(m)m.classList.toggle("open")}
+function closeMobileMore(){const m=document.getElementById("mobileMoreMenu");if(m)m.classList.remove("open")}
+document.addEventListener("click",e=>{const m=document.getElementById("mobileMoreMenu");if(!m||!m.classList.contains("open"))return;if(e.target.closest(".mobile-more-menu")||e.target.closest(".mobile-nav button:last-child"))return;m.classList.remove("open")});
 function home(){
  normalizeState();
  state.stage="home";
