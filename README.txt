@@ -1,18 +1,20 @@
-Inspection Pro v91 — Database & Sync Setup
+Inspection Pro v92 — Supabase Email + Password Authentication
 
-Database setup is now easy to find:
-- More -> Database & Sync (direct link)
-- More -> Settings -> Database & Sync
+Database & Sync now uses normal email/password authentication.
 
-Database screen includes:
-- Supabase Project URL
-- Publishable Key
-- Email Address
-- Save Database Settings
-- Test Connection
-- Send Sign-In Link
-- Sync Now after sign-in
-- Clear status: NOT CONFIGURED / CONFIGURED — NOT SIGNED IN / CONNECTED
+Added:
+- Create Account
+- Sign In
+- Sign Out
+- Forgot Password
+- Connection Status
+- Sync Now
+- Database connection test retained
 
-Version remains visible in the header as v91.
-All v90 functionality retained.
+Passwords are sent directly to Supabase Authentication and are not stored in Inspection Pro local settings.
+
+Supabase setup note:
+For password login, Supabase Authentication -> Providers -> Email must allow Email/Password sign-in.
+If Confirm Email is enabled, a new account must confirm its email once before password sign-in works.
+
+All v91 functionality retained.
