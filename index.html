@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<title>Inspection Pro v96</title>
+<title>Inspection Pro v97</title>
 <style>
 *{box-sizing:border-box}
 :root{--navy:#06274a;--blue:#0f5bd8;--light:#f4f6f9;--border:#d6dce5;--text:#172033;--muted:#687385;--green:#087851;--red:#b91c1c}
@@ -447,7 +447,7 @@ function fresh(){
  inspectorName:"",inspectorNo:"",decalNo:"",axles:2,axleConfig:[],brakeMeasurements:[],tireMeasurements:[],
  brakeControllerMakeModel:"",towPlate:"",towState:"",towGVWR:"",trailerPlate:"",trailerState:"",trailerGVWR:"",
  steeringWheelDiameter:"",steeringFreePlay:"",tractorProtectionPSI:"",tractorFlowPressure:"",
- safetyDeviceType:"Chain",safetyGVWR:"",safetySize:"",safetyGrade:"",
+ safetyDeviceType:"",safetyGVWR:"",safetySize:"",safetyGrade:"",
  fifthPivot:"",fifthSlider:"",fifthHalves:"",testTrailerPlate:"",testTrailerState:"",
  motorcoachExitResult:"N/A",mipNotes:"",mnCompliance:"",results:[],index:0,stage:"home",signature:"",report:null,completedAt:null,lastSaved:null};
 }
@@ -2510,8 +2510,12 @@ function saveFail(){
 
 
 
+function mnUnitKind(){
+ const e=String(state.equipmentType||state.vehicleType||"").toLowerCase();
+ return {trailer:e.includes("trailer")&&!e.includes("tractor"),tractor:e.includes("tractor"),bus:e.includes("bus")||e.includes("motor coach"),tow:e.includes("trailer")||e.includes("tractor")};
+}
 function mnSteeringRequired(){
- return state.type==="Minnesota MIP" && state.vehicleType!=="Trailer";
+ return state.type==="Minnesota MIP" && !mnUnitKind().trailer;
 }
 
 function mnSpecialBrakeType(){
@@ -2545,8 +2549,8 @@ function mnSupplement(){
  const axleRows=Array.from({length:Math.min(7,state.axles)},(_,i)=>{
    const a=i+1, cfg=state.axleConfig[i]||{};
    return `<tr><td>${a}</td><td>${esc(cfg.brake||"")}</td>
-   <td><input id="ctR${a}" placeholder="Chamber size"></td>
-   <td><input id="ctL${a}" placeholder="Chamber size"></td></tr>`;
+   <td><input id="ctR${a}" value="${esc(cfg.chamberRight||"")}" placeholder="Chamber size"></td>
+   <td><input id="ctL${a}" value="${esc(cfg.chamberLeft||"")}" placeholder="Chamber size"></td></tr>`;
  }).join("");
  appScreen.innerHTML=`${back("dashboard()")}<div class="card">
  <h2>Minnesota MIP — Information Form</h2>
@@ -2564,24 +2568,24 @@ function mnSupplement(){
  <div><label>Free Play (in.) *</label><input id="steeringFreePlay" value="${esc(state.steeringFreePlay)}"></div></div>
  `:`<p class="muted">Vehicle Type is Trailer. Steering wheel measurements are not required.</p>`}
 
- <h3>Tractor Protection Valve</h3>
+ <h3>Tractor Protection Valve ${mnUnitKind().tractor?"— Tractor":"— if equipped"}</h3>
  <div class="row"><div><label>Activates at (PSI)</label><input id="tractorProtectionPSI" value="${esc(state.tractorProtectionPSI)}"></div>
- <div><label>Flow Pressure</label><input id="tractorFlowPressure" value="${esc(state.tractorFlowPressure)}"></div></div>
+ <div><label>Test Method</label><select id="tractorFlowPressure"><option value="">N/A</option><option value="Flow" ${state.tractorFlowPressure==="Flow"?"selected":""}>Flow</option><option value="Pressure" ${state.tractorFlowPressure==="Pressure"?"selected":""}>Pressure</option></select></div></div>
 
- <h3>Safety Devices</h3>
- <div class="row"><div><label>Type <span class="muted">(updates Chain/Cable block)</span></label><select id="safetyDeviceType"><option ${state.safetyDeviceType==="Chain"?"selected":""}>Chain</option><option ${state.safetyDeviceType==="Cable"?"selected":""}>Cable</option></select></div>
+ <h3>Safety Devices ${mnUnitKind().tow?"— if equipped":"— N/A unless equipped"}</h3>
+ <div class="row"><div><label>Type <span class="muted">(updates Chain/Cable block)</span></label><select id="safetyDeviceType"><option value="" ${!state.safetyDeviceType?"selected":""}>N/A</option><option ${state.safetyDeviceType==="Chain"?"selected":""}>Chain</option><option ${state.safetyDeviceType==="Cable"?"selected":""}>Cable</option></select></div>
  <div><label>GVWR</label><input id="safetyGVWR" value="${esc(state.safetyGVWR)}"></div>
  <div><label>Size</label><input id="safetySize" value="${esc(state.safetySize)}"></div>
  <div><label>Grade</label><input id="safetyGrade" value="${esc(state.safetyGrade)}"></div></div>
 
- <h3>5th Wheel Measurements (in.)</h3>
+ <h3>5th Wheel Measurements (in.) ${mnUnitKind().tractor?"— if equipped":"— N/A unless equipped"}</h3>
  <div class="row"><div><label>Pivot Pin / Bracket</label><input id="fifthPivot" value="${esc(state.fifthPivot)}"></div>
  <div><label>Slider / Base</label><input id="fifthSlider" value="${esc(state.fifthSlider)}"></div>
  <div><label>Upper / Lower Halves</label><input id="fifthHalves" value="${esc(state.fifthHalves)}"></div></div>
  <div class="row"><div><label>Trailer Used for Test — Lic. Plate</label><input id="testTrailerPlate" value="${esc(state.testTrailerPlate)}"></div>
  <div><label>State</label><input id="testTrailerState" value="${esc(state.testTrailerState)}"></div></div>
 
- <h3>Motor Coaches</h3>
+ <h3>Motor Coaches ${mnUnitKind().bus?"— required":"— N/A"}</h3>
  <label>Emergency Exits / Push-out Windows <span class="muted">(updates PASS/FAIL/N/A block)</span></label>
  <select id="motorcoachExitResult"><option>PASS</option><option>FAIL</option><option>N/A</option></select>
 
@@ -3128,8 +3132,11 @@ function applyMinnesotaDropdownsToNativePdf(form){
  if(brakeTypes.some(x=>String(x).toLowerCase().includes("electric"))){
    safeRadio(form,"Group2","Electric");
  } else if(brakeTypes.some(x=>String(x).toLowerCase().includes("hydraulic")||String(x).toLowerCase().includes("surge"))){
-   safeRadio(form,"Group2","Hydraulic Surge");
+   safeRadio(form,"Group2","Hydraulic#20Surge");
  }
+
+ // Tractor protection test selection -> native Flow / Pressure radio control.
+ if(state.tractorFlowPressure==="Flow"||state.tractorFlowPressure==="Pressure")safeRadio(form,"Group12",state.tractorFlowPressure);
 
  // Safety device dropdown -> native Chain / Cable control.
  if(state.safetyDeviceType==="Cable"){
@@ -3144,7 +3151,7 @@ function applyMinnesotaDropdownsToNativePdf(form){
  } else if(state.motorcoachExitResult==="FAIL"){
    safeRadio(form,"Group13","Fail");
  } else {
-   safeRadio(form,"Group13","Not Applicable");
+   safeRadio(form,"Group13","Not#20Applicable");
  }
 
  // Page 1 compliance control on the supplied Minnesota PDF:
@@ -3246,6 +3253,14 @@ function federalOnePageReport(){
  win.document.open();win.document.write(html);win.document.close();
 }
 
+// Minnesota MIP time fields use Minnesota local clock time, including DST.
+function mipMinnesotaTime(value){
+ const d=value instanceof Date?value:new Date(value);
+ const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',hour:'numeric',minute:'2-digit',hour12:true}).formatToParts(d);
+ const get=t=>parts.find(p=>p.type===t)?.value||'';
+ return {clock:`${get('hour')}:${get('minute')}`,period:get('dayPeriod').toUpperCase()};
+}
+
 async function buildNativeMinnesotaPDF(){
  if(!window.PDFLib) throw new Error("The PDF form library did not load. Check your internet connection and reopen the app.");
  const {PDFDocument}=window.PDFLib;
@@ -3261,8 +3276,10 @@ async function buildNativeMinnesotaPDF(){
  safeText(form,"1 Date mmddyyyy",formatDateMMDDYYYY(completed));
  safeText(form,"2InspLocation Street Address",state.location);
  safeText(form,"3 City State ZIP",state.cityStateZip);
- safeText(form,"In",format24(started));
- safeText(form,"Out",format24(completed));
+ const timeIn=mipMinnesotaTime(started);
+ const timeOut=mipMinnesotaTime(completed);
+ safeText(form,"In",timeIn.clock);
+ safeText(form,"Out",timeOut.clock);
  safeText(form,"6Veh Make",state.make);
  safeText(form,"7Year",state.year);
  safeText(form,"8VIN",state.vin);
@@ -3282,7 +3299,18 @@ async function buildNativeMinnesotaPDF(){
  safeText(form,"22Inspector Name",state.inspectorName);
  safeText(form,"23Inspector",state.inspectorNo);
 
- // Leave AM/PM controls untouched, per the established app format.
+ // The official MIP form has printed AM/PM squares but no interactive PDF
+ // checkbox fields for them. Draw a single mark inside the correct square
+ // for each of the Time In and Time Out fields (PDF coordinates).
+ const timePage=pdfDoc.getPages()[0];
+ const markTimeBox=(x,period)=>{
+   const top=period==='AM'?82.0:91.3;
+   const y=timePage.getHeight()-(top+4.7);
+   timePage.drawLine({start:{x:x-3.0,y:y-3.0},end:{x:x+3.0,y:y+3.0},thickness:1.35});
+   timePage.drawLine({start:{x:x-3.0,y:y+3.0},end:{x:x+3.0,y:y-3.0},thickness:1.35});
+ };
+ markTimeBox(506.1,timeIn.period);
+ markTimeBox(565.0,timeOut.period);
  // Populate the PDF's own PASS / FAIL / N/A radio groups.
  state.results.forEach(r=>{
    const group=MN_ITEM_TO_PDF_GROUP[r.item.name];
@@ -3294,7 +3322,7 @@ async function buildNativeMinnesotaPDF(){
 
  // PAGE 2 — native information-form fields.
  safeText(form,"Date",formatDateMMDDYYYY(completed));
- safeText(form,"Time",format24(completed));
+ safeText(form,"Time",timeOut.clock+" "+timeOut.period);
  safeText(form,"Veh Lic",state.plate);
  safeText(form,"Decal",state.decalNo);
  safeText(form,"Name",state.inspectorName);
@@ -3312,7 +3340,7 @@ async function buildNativeMinnesotaPDF(){
  state.tireMeasurements.forEach(t=>{
    const a=t.axle;
    if(a<1||a>7)return;
-   const tread=String(t.tread??"")+"/32";
+   const tread=(t.tread===undefined||t.tread===null||String(t.tread).trim()==="")?"":String(t.tread)+"/32";
    const psi=String(t.psi||"");
    if(t.position==="Right Outer"||t.position==="Right"){
      safeText(form,`R${a}OMin Tread`,tread);
@@ -3330,6 +3358,8 @@ async function buildNativeMinnesotaPDF(){
  });
 
  // Supplemental sections from the supplied Page 2 form.
+ // Inspector name and decal are populated above on BOTH pages.
+ // Native radio selections are applied by applyMinnesotaDropdownsToNativePdf().
 
  safeText(form,"MakeModel",state.brakeControllerMakeModel);
  safeText(form,"Lic Plate",state.towPlate);
@@ -3343,6 +3373,7 @@ async function buildNativeMinnesotaPDF(){
  safeText(form,"Wheel diameter",state.steeringWheelDiameter);
  safeText(form,"Free Play in",state.steeringFreePlay);
  safeText(form,"Activates at PSI",state.tractorProtectionPSI);
+ safeText(form,"Trlr GVWR",state.safetyGVWR);
  safeText(form,"Size",state.safetySize);
  safeText(form,"Grade",state.safetyGrade);
 
