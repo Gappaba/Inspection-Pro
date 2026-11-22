@@ -18,3 +18,10 @@ For password login, Supabase Authentication -> Providers -> Email must allow Ema
 If Confirm Email is enabled, a new account must confirm its email once before password sign-in works.
 
 All v91 functionality retained.
+
+Inspection Pro v93 draft navigation repair:
+- Home no longer overwrites the saved inspection stage.
+- Drafts resume at the saved step, including setup.
+- App saves on page hide and backgrounding.
+- Starting a new inspection warns before replacing the one existing draft.
+- This version still supports one active draft, not multiple simultaneous drafts.
