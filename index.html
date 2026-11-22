@@ -468,7 +468,33 @@ function normalizeState(){
 normalizeState();
 
 function load(){try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null}}
-function save(){state.lastSaved=new Date().toLocaleTimeString();localStorage.setItem(KEY,JSON.stringify(state));if(state.type&&!state.report)scheduleAutoSync(9000)}
+const DRAFT_LIST_KEY="inspectionProDraftListV96";
+const DRAFT_DELETED_KEY="inspectionProDeletedDraftIdsV96";
+function draftId(s){if(!s.localId)s.localId=(typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():"draft-"+Date.now()+"-"+Math.random().toString(16).slice(2));return s.localId;}
+function readDraftList(){try{const a=JSON.parse(localStorage.getItem(DRAFT_LIST_KEY)||"[]");return Array.isArray(a)?a:[]}catch(e){return []}}
+function writeDraftList(a){localStorage.setItem(DRAFT_LIST_KEY,JSON.stringify(a));}
+function rememberDraft(s){
+ if(!s||!s.type||s.report)return;
+ const id=draftId(s),a=readDraftList(),i=a.findIndex(d=>d.localId===id);
+ const copy=JSON.parse(JSON.stringify(s));copy.draftUpdatedAt=new Date().toISOString();
+ if(i>=0)a[i]=copy;else a.unshift(copy);
+ writeDraftList(a);
+}
+function removeDraftById(id){if(!id)return;writeDraftList(readDraftList().filter(d=>d.localId!==id));}
+function deletedDraftIds(){try{return JSON.parse(localStorage.getItem(DRAFT_DELETED_KEY)||"[]")}catch(e){return []}}
+function markDraftDeleted(id){const a=deletedDraftIds();if(id&&!a.includes(id)){a.push(id);localStorage.setItem(DRAFT_DELETED_KEY,JSON.stringify(a));}}
+function allDrafts(){
+ const a=readDraftList();
+ if(state.type&&!state.report){const id=draftId(state);if(!a.some(d=>d.localId===id))a.unshift(JSON.parse(JSON.stringify(state)));}
+ return a.filter(d=>d.type&&!d.report&&!deletedDraftIds().includes(d.localId));
+}
+function save(){
+ state.lastSaved=new Date().toLocaleTimeString();
+ if(state.type&&!state.report)rememberDraft(state);
+ if(state.report)removeDraftById(state.localId);
+ localStorage.setItem(KEY,JSON.stringify(state));
+ if(state.type&&!state.report)scheduleAutoSync(9000);
+}
 
 
 
@@ -1178,9 +1204,9 @@ async function backendPushAll(){
  if(!session)throw new Error("Sign in before syncing.");
 
  let pushed=0;
- // Current active draft
- if(state.type&&!state.report){
-   await backendUpsertState(state,"draft");
+ // Every unfinished draft is synchronized independently.
+ for(const draft of allDrafts()){
+   await backendUpsertState(draft,"draft");
    pushed++;
  }
  // Completed local history
@@ -1238,24 +1264,27 @@ async function backendPullCompleted(){
  return data?.length||0;
 }
 async function backendPullDraft(){
- const c=await getBackendClient();
- const {data:{session}}=await c.auth.getSession();
- if(!session)return false;
- const {data,error}=await c.from("inspection_records")
-   .select("*")
-   .eq("status","draft")
-   .order("updated_at",{ascending:false})
-   .limit(1);
- if(error)throw error;
- const row=data?.[0];
- if(!row?.snapshot)return false;
- if(!state.type||state.report){
-   state=row.snapshot;
-   normalizeState();
-   save();
-   return true;
+ const c=await getBackendClient();const {data:{session}}=await c.auth.getSession();if(!session)return false;
+ const existing=readDraftList(),byId=new Map(existing.map(d=>[d.localId,d]));let added=0;
+ let offset=0,rows=[];
+ while(true){
+   const {data,error}=await c.from("inspection_records").select("*").eq("status","draft").order("updated_at",{ascending:false}).range(offset,offset+499);
+   if(error)throw error;
+   rows.push(...(data||[]));
+   if(!data||data.length<500)break;
+   offset+=500;
  }
- return false;
+ for(const row of rows){
+   const d=row.snapshot;if(!d?.type||d.report)continue;
+   const id=d.localId||row.local_id;if(!id||deletedDraftIds().includes(id))continue;
+   d.localId=id;
+   if(!byId.has(id)){byId.set(id,d);added++;}
+ }
+ if(added)writeDraftList([...byId.values()]);
+ if((!state.type||state.report)&&added){
+   state=JSON.parse(JSON.stringify([...byId.values()][0]));normalizeState();save();
+ }
+ return added>0;
 }
 let autoSyncTimer=null;
 let syncInProgress=false;
@@ -1947,13 +1976,11 @@ function home(){
    <p class="muted">Troubleshooting and step-by-step instructions for customers, vehicles, inspections, reports, photos, sync, and more.</p>
    <button class="secondary" onclick="helpScreen()">OPEN HELP & GUIDES</button>
  </div>
- <div class="stats"><div class="stat"><strong>${state.type&&!state.report?1:0}</strong><div class="muted">Drafts in progress</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>{const d=new Date(x.completedAt||x.date),n=new Date();return !isNaN(d)&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()}).length}</strong><div class="muted">Completed this month</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>x.overall==="FAIL").length}</strong><div class="muted">Reinspections due</div></div></div>`;
+ <div class="stats"><div class="stat"><strong>${allDrafts().length}</strong><div class="muted">Drafts in progress</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>{const d=new Date(x.completedAt||x.date),n=new Date();return !isNaN(d)&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()}).length}</strong><div class="muted">Completed this month</div></div><div class="stat"><strong>${loadCompletedInspections().filter(x=>x.overall==="FAIL").length}</strong><div class="muted">Reinspections due</div></div></div>`;
 }
 
 function newInspection(){
- if(state.type&&!state.report){
-   if(!confirm("An unfinished inspection is saved. Starting a new inspection will replace this draft. Continue?"))return;
- }
+ if(state.type&&!state.report){try{save()}catch(e){alert("Unable to save your current draft. New inspection was not started: "+e.message);return;}}
  state=fresh();save();
  appScreen.innerHTML=`${back("home()")}<div class="card"><h2>Select Inspection Type</h2>
  <button class="choice" onclick="setup('U.S. Federal Periodic Inspection')"><b>U.S. FEDERAL PERIODIC INSPECTION</b><br><span class="muted">49 CFR 396.17 / Appendix A</span></button>
@@ -3588,30 +3615,46 @@ function deleteDraft(){
  }
  const ok=confirm("Delete this draft inspection?\n\nThis permanently removes the unfinished inspection. Completed inspections will not be affected.");
  if(!ok) return;
+ const id=draftId(state);
+ removeDraftById(id);
+ markDraftDeleted(id);
  state=fresh();
  try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
+ if(backendConfigured())deleteRemoteDraft(id);
  home();
 }
 
 window.addEventListener("pagehide",()=>{if(state.type&&!state.report){try{save()}catch(e){console.warn("Draft save failed",e)}}});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&state.type&&!state.report){try{save()}catch(e){console.warn("Draft save failed",e)}}});
 
+async function deleteRemoteDraft(id){
+ try{const c=await getBackendClient();const {data:{session}}=await c.auth.getSession();if(!session)return;
+ const {error}=await c.from("inspection_records").delete().eq("user_id",session.user.id).eq("local_id",id).eq("status","draft");if(error)console.warn("Remote draft deletion pending",error);
+ }catch(e){console.warn("Remote draft deletion pending",e)}
+}
+function openSavedDraft(id){
+ if(state.type&&!state.report){try{save()}catch(e){alert("Could not save current draft: "+e.message);return;}}
+ const selected=allDrafts().find(d=>d.localId===id);if(!selected){alert("Draft not found");return;}
+ state=JSON.parse(JSON.stringify(selected));normalizeState();save();resume();
+}
+function deleteSavedDraft(id){
+ if(!confirm("Delete this unfinished inspection? This cannot be undone."))return;
+ removeDraftById(id);markDraftDeleted(id);
+ if(state.localId===id){state=fresh();localStorage.setItem(KEY,JSON.stringify(state));}
+ if(backendConfigured())deleteRemoteDraft(id);
+ drafts();
+}
 function drafts(){
- const hasDraft=state.type&&!state.report;
+ const list=allDrafts();
  appScreen.innerHTML=`${back("home()")}
- <div class="card">
-   <h2>Drafts</h2>
-   ${hasDraft?`
-     <div class="card">
-       <p><b>${esc(state.unit||"Unassigned Unit")}</b><br>${esc(state.type)}</p>
-       <p class="muted">Saved: ${esc(state.lastSaved||"—")}</p>
-       <div class="row">
-         <button class="primary" onclick="resume()">CONTINUE INSPECTION</button>
-         <button class="danger" onclick="deleteDraft()">DELETE DRAFT</button>
-       </div>
-     </div>
-   `:"<p class='muted'>No saved drafts.</p>"}
- </div>`;
+ <div class="card"><h2>Drafts (${list.length})</h2>
+ <button class="primary" onclick="newInspection()">+ START ANOTHER INSPECTION</button>
+ ${list.length?list.map(d=>`<div class="card" style="margin-top:12px">
+ <p><b>${esc(d.unit||"Unassigned Unit")}</b><br>${esc(d.type)}</p>
+ <p class="muted">Customer: ${esc(d.customer||d.carrierName||"Not selected")} • Saved: ${esc(d.lastSaved||"—")}</p>
+ <div class="row"><button class="primary" onclick="openSavedDraft('${d.localId}')">CONTINUE</button>
+ <button class="danger" onclick="deleteSavedDraft('${d.localId}')">DELETE</button></div>
+ </div>`).join(""):"<p class='muted'>No saved drafts.</p>"}</div>`;
 }
 function resume(){if(state.stage==="setup")setup(state.type,true);else if(state.stage==="axles")axleScreen();else if(state.stage==="brakes")brakeMeasure(Math.min(state.brakeMeasurements.length,state.axles));else if(state.stage==="tires")tireMeasure(0,0);else if(state.stage==="dashboard")dashboard();else if(state.stage==="inspection")showItem();else if(state.stage==="mnSupplement")mnSupplement();else if(state.stage==="review")review();else if(state.stage==="signature")signatureScreen();else home()}
 function historyScreen(query=""){
