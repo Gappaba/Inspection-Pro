@@ -2577,13 +2577,12 @@ function mnSupplement(){
  <div class="row"><div><label>Trailer Used for Test — Lic. Plate</label><input id="testTrailerPlate" value="${esc(state.testTrailerPlate)}"></div>
  <div><label>State</label><input id="testTrailerState" value="${esc(state.testTrailerState)}"></div></div>
 
- <h3>Page 1 — Inspection Time</h3>
- <p class="muted">Confirm the time and explicitly select AM or PM for each entry. The selected period will be used on the Minnesota PDF.</p>
- <div class="row"><div><label>Time In (12-hour HH:MM)</label><input id="mipTimeInClock" inputmode="numeric" placeholder="e.g. 9:30" value="${esc(state.mipTimeInClock||mipMinnesotaTime(state.startedAt||new Date()).clock)}"></div>
- <div><label>Time In — AM or PM</label><select id="mipTimeInPeriod"><option value="AM">AM</option><option value="PM">PM</option></select></div></div>
- <div class="row"><div><label>Time Out (12-hour HH:MM)</label><input id="mipTimeOutClock" inputmode="numeric" placeholder="e.g. 2:15" value="${esc(state.mipTimeOutClock||mipMinnesotaTime(state.completedAt||new Date()).clock)}"></div>
- <div><label>Time Out — AM or PM</label><select id="mipTimeOutPeriod"><option value="AM">AM</option><option value="PM">PM</option></select></div></div>
-
+ <h3>Page 1 — Inspection Times</h3>
+ <p class="muted">Select a 12-hour time and AM or PM for each entry.</p>
+ <div class="row"><div><label>Time In</label><input id="mipTimeInClock" inputmode="numeric" placeholder="9:30" value="${esc(state.mipTimeInClock||mipMinnesotaTime(state.startedAt||new Date()).clock)}"></div>
+ <div><label>Time In AM / PM</label><select id="mipTimeInPeriod"><option value="AM">AM</option><option value="PM">PM</option></select></div></div>
+ <div class="row"><div><label>Time Out</label><input id="mipTimeOutClock" inputmode="numeric" placeholder="2:15" value="${esc(state.mipTimeOutClock||mipMinnesotaTime(state.completedAt||new Date()).clock)}"></div>
+ <div><label>Time Out AM / PM</label><select id="mipTimeOutPeriod"><option value="AM">AM</option><option value="PM">PM</option></select></div></div>
  <h3>Motor Coaches</h3>
  <label>Emergency Exits / Push-out Windows <span class="muted">(updates PASS/FAIL/N/A block)</span></label>
  <select id="motorcoachExitResult"><option>PASS</option><option>FAIL</option><option>N/A</option></select>
@@ -2601,13 +2600,14 @@ function saveMnSupplement(){
  const na={};["naSteering","naTractorValve","naSafety","naFifth"].forEach(id=>na[id]=!!document.getElementById(id)?.checked);
  state.mnSectionNA=na;
  const ids=["steeringWheelDiameter","steeringFreePlay","brakeControllerMakeModel","towPlate","towState","towGVWR","trailerPlate","trailerState","trailerGVWR","tractorProtectionPSI","tractorFlowPressure","safetyDeviceType","safetyGVWR","safetySize","safetyGrade","fifthPivot","fifthSlider","fifthHalves","testTrailerPlate","testTrailerState","motorcoachExitResult","mipTimeInClock","mipTimeInPeriod","mipTimeOutClock","mipTimeOutPeriod","mipNotes","mnBrakeSupplementType"];
- ids.forEach(id=>{state[id]=document.getElementById(id)?.value||"";});
+ const proposed={};
+ ids.forEach(id=>{proposed[id]=document.getElementById(id)?.value||"";});
  for(const id of ["mipTimeInClock","mipTimeOutClock"]){
-   const v=String(state[id]||"").trim();
-   const m=v.match(/^(1[0-2]|0?[1-9]):([0-5][0-9])$/);
-   if(!m){alert("Enter a valid 12-hour time (HH:MM) for "+(id==="mipTimeInClock"?"Time In":"Time Out")+".");document.getElementById(id)?.focus();return;}
-   state[id]=`${Number(m[1])}:${m[2]}`;
+   const v=String(proposed[id]).trim();const m=v.match(/^(1[0-2]|0?[1-9]):([0-5][0-9])$/);
+   if(!m){alert("Enter a valid 12-hour time (HH:MM) for "+(id==="mipTimeInClock"?"Time In":"Time Out"));document.getElementById(id)?.focus();return;}
+   proposed[id]=`${Number(m[1])}:${m[2]}`;
  }
+ Object.assign(state,proposed);
  const clear={naSteering:["steeringWheelDiameter","steeringFreePlay"],naTractorValve:["tractorProtectionPSI","tractorFlowPressure"],naSafety:["safetyDeviceType","safetyGVWR","safetySize","safetyGrade"],naFifth:["fifthPivot","fifthSlider","fifthHalves","testTrailerPlate","testTrailerState"]};
  Object.keys(clear).forEach(k=>{if(na[k])clear[k].forEach(id=>state[id]="");});
  if(state.mnBrakeSupplementType==="N/A") ["brakeControllerMakeModel","towPlate","towState","towGVWR","trailerPlate","trailerState","trailerGVWR"].forEach(id=>state[id]="");
@@ -3055,15 +3055,7 @@ function safeText(form,name,value){
  try{form.getTextField(name).setText(String(value??""));}catch(e){}
 }
 function safeRadio(form,name,value){
- try{
-   const radio=form.getRadioGroup(name);
-   const options=radio.getOptions();
-   const normalize=v=>String(v).toLowerCase().replace(/#20/g," ").replace(/[^a-z0-9]/g,"");
-   const target=normalize(value);
-   const match=options.find(o=>normalize(o)===target) || options.find(o=>normalize(o).includes(target)||target.includes(normalize(o)));
-   if(match)radio.select(match);
-   else console.warn("Unmapped PDF radio option",name,value,options);
- }catch(e){console.warn("PDF radio selection failed",name,e);}
+ try{form.getRadioGroup(name).select(value);}catch(e){}
 }
 function safeCheck(form,name,value){
  try{
@@ -3126,14 +3118,16 @@ function applyMinnesotaDropdownsToNativePdf(form){
    safeRadio(form,"Group92","Chain");
  }
 
- // Motorcoach emergency exit result -> native PASS / FAIL / N/A control.
- if(state.motorcoachExitResult==="PASS"){
-   safeRadio(form,"Group13","Pass");
- } else if(state.motorcoachExitResult==="FAIL"){
-   safeRadio(form,"Group13","Fail");
- } else {
-   safeRadio(form,"Group13","Not#20Applicable");
- }
+ // Motorcoach result: native radio selection plus an explicit visible X in
+ // the matching printed box (coordinates measured on the official PDF).
+ const motorChoice=state.motorcoachExitResult==="PASS"?"Pass":state.motorcoachExitResult==="FAIL"?"Fail":"Not#20Applicable";
+ safeRadio(form,"Group13",motorChoice);
+ const motorPage=pdfDoc.getPages()[1];
+ const motorCenters={PASS:448.0,FAIL:483.95,"N/A":520.72};
+ const motorKey=state.motorcoachExitResult==="PASS"?"PASS":state.motorcoachExitResult==="FAIL"?"FAIL":"N/A";
+ const mx=motorCenters[motorKey],my=motorPage.getHeight()-645.34;
+ motorPage.drawLine({start:{x:mx-2.8,y:my-2.8},end:{x:mx+2.8,y:my+2.8},thickness:1.5,color:PDFLib.rgb(0,0,0)});
+ motorPage.drawLine({start:{x:mx-2.8,y:my+2.8},end:{x:mx+2.8,y:my-2.8},thickness:1.5,color:PDFLib.rgb(0,0,0)});
 
  // Page 1 compliance control on the supplied Minnesota PDF:
  // "THIS VEHICLE IS IN COMPLIANCE WITH 49 CFR 396.17 APPENDIX A"  Y / N
@@ -3293,7 +3287,7 @@ async function buildNativeMinnesotaPDF(){
  const markTimeBox=(x,period)=>{
    for(const [name,top] of [['AM',82.0],['PM',91.3]]){
      const y=timePage.getHeight()-(top+4.7);
-     // Preserve the printed checkbox border; only add a mark for the selected period.
+     timePage.drawRectangle({x:x-3.5,y:y-3.5,width:7,height:7,color:PDFLib.rgb(1,1,1)});
      if(name===period){
        timePage.drawLine({start:{x:x-3.1,y:y-3.1},end:{x:x+3.1,y:y+3.1},thickness:1.4,color:PDFLib.rgb(0,0,0)});
        timePage.drawLine({start:{x:x-3.1,y:y+3.1},end:{x:x+3.1,y:y-3.1},thickness:1.4,color:PDFLib.rgb(0,0,0)});
