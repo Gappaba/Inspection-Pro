@@ -1,0 +1,1 @@
+v97 test patch: explicit Time In/Out 12-hour clock and AM/PM selection on Minnesota supplemental screen; motorcoach PASS/FAIL/N/A selection maps to PDF radio group. Test completed PDF before field use.
