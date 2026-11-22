@@ -2320,24 +2320,25 @@ function brakeMeasure(i){
    save();brakeMeasure(i+1);return
  }
  const prev=state.brakeMeasurements[i]||{};
- const chamberOptions=["Type 12","Type 16","Type 20","Type 24","Type 30","Type 36","Long Stroke / Other"];
- const chamberSelect=(id,val)=>`<select id="${id}">${chamberOptions.map(o=>`<option ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;
+ const chamberSizes=["9","12","16","20","24","30","36","24/24","24/30","30/30"];
+ const chamberOptions=[...chamberSizes.flatMap(x=>[x,x+" LS"]),"Other","N/A"];
+ const chamberSelect=(id,val)=>`<select id="${id}">${chamberOptions.map(o=>`<option value="${o}" ${o===val?"selected":""}>${o}</option>`).join("")}</select>`;
  appScreen.innerHTML=`${back(i===0?"axleScreen()":`brakeMeasure(${i-1})`)}
  <div class="card">
    <h2>Brake Measurements</h2>
    <h3>Axle ${i+1} — Air</h3>
    <div class="grid2">
      <div>
-       <label>Left Brake Chamber Type / Size *</label>
-       ${chamberSelect("leftChamber",a.chamberLeft||"Type 30")}
+       <label>Left Brake Chamber Size *</label>
+       ${chamberSelect("leftChamber",a.chamberLeft||"30")}
        <label>Left Chamber Note / Custom Size</label>
-       <input id="leftChamberNote" value="${esc(a.chamberNoteLeft||"")}" placeholder="Example: Type 30 Long Stroke">
+       <input id="leftChamberNote" value="${esc(a.chamberNoteLeft||"")}" placeholder="Example: 30/30 LS">
      </div>
      <div>
-       <label>Right Brake Chamber Type / Size *</label>
-       ${chamberSelect("rightChamber",a.chamberRight||"Type 30")}
+       <label>Right Brake Chamber Size *</label>
+       ${chamberSelect("rightChamber",a.chamberRight||"30")}
        <label>Right Chamber Note / Custom Size</label>
-       <input id="rightChamberNote" value="${esc(a.chamberNoteRight||"")}" placeholder="Example: Type 30 Long Stroke">
+       <input id="rightChamberNote" value="${esc(a.chamberNoteRight||"")}" placeholder="Example: 30/30 LS">
      </div>
    </div>
    <div class="grid2">
@@ -2345,7 +2346,7 @@ function brakeMeasure(i){
      <div><label>Right Pushrod / Adjustment *</label><input id="right" type="number" step=".01" value="${prev.right||""}" placeholder="inches"></div>
    </div>
    <button class="guide" onclick="toggleGuide()">ⓘ HOW DO I MEASURE THIS? ▾</button>
-   <div class="guide-panel" id="guidePanel">Record the chamber type/size installed on each side and the applicable pushrod stroke / adjustment measurement. Use the Chamber Note / Custom Size field when the exact chamber designation is not listed.</div>
+   <div class="guide-panel" id="guidePanel">Record the chamber size installed on each side and the applicable pushrod stroke / adjustment measurement. Use the Chamber Note / Custom Size field when the exact chamber designation is not listed.</div>
    <button class="primary" onclick="saveBrake(${i})">SAVE & NEXT →</button>
  </div>`;
 }
@@ -2358,7 +2359,7 @@ function saveBrake(i){
  const lcn=document.getElementById("leftChamberNote").value.trim();
  const rcn=document.getElementById("rightChamberNote").value.trim();
  if(!l||!r){alert("Enter both air-brake measurements.");return}
- if(!lc||!rc){alert("Select the brake chamber type/size for both sides.");return}
+ if(!lc||!rc){alert("Select the brake chamber size for both sides.");return}
  state.axleConfig[i].chamberLeft=lcn||lc;
  state.axleConfig[i].chamberRight=rcn||rc;
  state.axleConfig[i].chamberNoteLeft=lcn;
@@ -2369,18 +2370,32 @@ function saveBrake(i){
 }
 
 function tirePositions(n){return n===2?["Left","Right"]:["Left Outer","Left Inner","Right Inner","Right Outer"]}
+function tireThreshold(ai){return ai===0 && state.vehicleType!=="Trailer" ? 4 : 2}
+function failedTires(){return (state.tireMeasurements||[]).filter(t=>Number(t.tread)<=tireThreshold(t.axle-1))}
+function tireFailureDescription(){return failedTires().map(t=>`Axle ${t.axle} ${t.position}: ${t.tread}/32 inch tread; company auto-fail threshold ${tireThreshold(t.axle-1)}/32 inch or less.`).join(" ")}
 function tireMeasure(ai,ti){
  state.stage="tires";save();
  if(ai>=state.axles){state.index=state.results.length;dashboard();return}
  const pos=tirePositions(state.axleConfig[ai].tires);
  if(ti>=pos.length){tireMeasure(ai+1,0);return}
  const key=ai+"-"+ti,prev=state.tireMeasurements.find(x=>x.key===key)||{};
+ const limit=tireThreshold(ai);
  appScreen.innerHTML=`${back(ti>0?`tireMeasure(${ai},${ti-1})`:ai>0?`tireMeasure(${ai-1},${tirePositions(state.axleConfig[ai-1].tires).length-1})`:`brakeMeasure(${state.axles-1})`)}<div class="card"><h2>Tire Measurements</h2><h3>Axle ${ai+1} — ${pos[ti]}</h3>
- <div class="grid2"><div><label>Tread Depth</label><input id="tread" type="number" value="${prev.tread||""}" placeholder="32nds"></div><div><label>Pressure</label><input id="psi" type="number" value="${prev.psi||""}" placeholder="PSI"></div></div>
- <button class="guide" onclick="toggleGuide()">ⓘ WHAT AM I LOOKING FOR? ▾</button><div class="guide-panel" id="guidePanel">Record minimum tread depth and pressure. Inspect for cuts, exposed cord, bulges, separation, irregular wear, and other unsafe tire conditions.</div>
+ <p class="muted">Company auto-fail: ${limit}/32 inch or less. Enter tread depth as a number; /32 is added automatically.</p>
+ <div class="grid2"><div><label>Tread Depth (/32 in.)</label><input id="tread" type="number" min="0" step="0.5" value="${prev.tread??""}" placeholder="Number only"></div><div><label>Pressure (PSI)</label><input id="psi" type="number" min="0" value="${prev.psi??""}" placeholder="PSI"></div></div>
+ <button class="guide" onclick="toggleGuide()">ⓘ WHAT AM I LOOKING FOR? ▾</button><div class="guide-panel" id="guidePanel">Record minimum tread depth and pressure. Inspect for cuts, exposed cord, bulges, separation, irregular wear, and other unsafe tire conditions. Company auto-fail limits are stricter than federal minimums at exactly 4/32 and 2/32.</div>
  <button class="primary" onclick="saveTire(${ai},${ti})">SAVE & NEXT →</button></div>`;
 }
-function saveTire(ai,ti){const tread=document.getElementById("tread").value,psi=document.getElementById("psi").value;if(!tread||!psi){alert("Enter tread depth and tire pressure.");return}const key=ai+"-"+ti;state.tireMeasurements=state.tireMeasurements.filter(x=>x.key!==key);state.tireMeasurements.push({key,axle:ai+1,position:tirePositions(state.axleConfig[ai].tires)[ti],tread,psi});save();tireMeasure(ai,ti+1)}
+function saveTire(ai,ti){
+ const tread=document.getElementById("tread").value.trim(),psi=document.getElementById("psi").value.trim();
+ if(tread===""||psi===""||!Number.isFinite(Number(tread))||Number(tread)<0||!Number.isFinite(Number(psi))||Number(psi)<0){alert("Enter a valid tread depth and tire pressure.");return}
+ const key=ai+"-"+ti;
+ state.tireMeasurements=state.tireMeasurements.filter(x=>x.key!==key);
+ state.tireMeasurements.push({key,axle:ai+1,position:tirePositions(state.axleConfig[ai].tires)[ti],tread,psi});
+ save();
+ if(Number(tread)<=tireThreshold(ai)) alert(`AUTOMATIC TIRE FAILURE: ${tread}/32 is at or below the ${tireThreshold(ai)}/32 company threshold. You must document this tire discrepancy and provide a photo in the TIRES inspection section.`);
+ tireMeasure(ai,ti+1)
+}
 
 function toggleGuide(){const p=document.getElementById("guidePanel");if(p)p.style.display=p.style.display==="block"?"none":"block"}
 function dashboard(){
@@ -2413,14 +2428,14 @@ function showItem(){
  <button class="choice pass" onclick="answer('PASS')">🟢 PASS</button><button class="choice na" onclick="answer('N/A')">⚪ N/A</button><button class="choice fail" onclick="failScreen()">🔴 FAIL</button></div>`;
 }
 function previousItem(){if(state.index>0){state.index--;const its=flatItems();const prior=its[state.index];state.results=state.results.filter(r=>!(r.item.section===prior.section&&r.item.name===prior.name));save()}showItem()}
-function answer(a){const it=flatItems()[state.index];state.results=state.results.filter(r=>!(r.item.section===it.section&&r.item.name===it.name));state.results.push({item:it,answer:a});state.index++;save();showItem()}
+function answer(a){const it=flatItems()[state.index];if(it.section.toUpperCase().includes("TIRES") && failedTires().length && a!=="FAIL"){alert("Tire tread measurement(s) automatically failed. Document the discrepancy and add a photo.");failScreen();return;}state.results=state.results.filter(r=>!(r.item.section===it.section&&r.item.name===it.name));state.results.push({item:it,answer:a});state.index++;save();showItem()}
 
 function failScreen(){
  const it=flatItems()[state.index];
  state.pendingPhotos=[];
  appScreen.innerHTML=`${back("showItem()")}<div class="card">
  <h2 class="danger">Document Deficiency</h2><p><b>${it.section}</b><br>${it.name}</p>
- <label>Discrepancy *</label><textarea id="desc" rows="4" placeholder="Describe exactly what was found..."></textarea>
+ <label>Discrepancy *</label><textarea id="desc" rows="4" placeholder="Describe exactly what was found...">${it.section.toUpperCase().includes("TIRES")?tireFailureDescription():""}</textarea>
  <label>Photos * <span class="muted">(at least 1, up to 4)</span></label>
  <input id="photoInput" type="file" accept="image/*" capture="environment" onchange="capturePhoto(event)">
  <button class="secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('photoInput').click()">📷 ADD PHOTO</button>
@@ -2508,15 +2523,15 @@ function mnSupplement(){
  const axleRows=Array.from({length:Math.min(7,state.axles)},(_,i)=>{
    const a=i+1, cfg=state.axleConfig[i]||{};
    return `<tr><td>${a}</td><td>${esc(cfg.brake||"")}</td>
-   <td><input id="ctR${a}" placeholder="Chamber type/size"></td>
-   <td><input id="ctL${a}" placeholder="Chamber type/size"></td></tr>`;
+   <td><input id="ctR${a}" placeholder="Chamber size"></td>
+   <td><input id="ctL${a}" placeholder="Chamber size"></td></tr>`;
  }).join("");
  appScreen.innerHTML=`${back("dashboard()")}<div class="card">
  <h2>Minnesota MIP — Information Form</h2>
  <p class="muted">Complete the supplemental items that appear on page 2 of the official Minnesota form.</p>
 
  <h3>Brake Adjustment / Brake Type</h3>
- <table><tr><th>Axle</th><th>Brake Type</th><th>Right Chamber Type/Size</th><th>Left Chamber Type/Size</th></tr>${axleRows}</table>
+ <table><tr><th>Axle</th><th>Brake Type</th><th>Right Chamber Size</th><th>Left Chamber Size</th></tr>${axleRows}</table>
 
  ${mnSpecialBrakeSection()}
 
@@ -3275,7 +3290,7 @@ async function buildNativeMinnesotaPDF(){
  state.tireMeasurements.forEach(t=>{
    const a=t.axle;
    if(a<1||a>7)return;
-   const tread=String(t.tread||"");
+   const tread=String(t.tread??"")+"/32";
    const psi=String(t.psi||"");
    if(t.position==="Right Outer"||t.position==="Right"){
      safeText(form,`R${a}OMin Tread`,tread);
@@ -3541,11 +3556,11 @@ function officialMIPForm(){
    else if(t.position==="Right Inner"){treadY=381;psiY=410}
    else if(t.position==="Left Inner"){treadY=470;psiY=499}
    else if(t.position==="Left Outer"||t.position==="Left"){treadY=529;psiY=558}
-   if(treadY){page2+=mipField(x,treadY,58,t.tread,14);page2+=mipField(x,psiY,58,t.psi,14)}
+   if(treadY){page2+=mipField(x,treadY,58,String(t.tread)+"/32",14);page2+=mipField(x,psiY,58,t.psi,14)}
  });
 
 
- // Chamber type/size for axles 1-7.
+ // Chamber size for axles 1-7.
  state.axleConfig.slice(0,7).forEach((a,i)=>{
    page2 += mipField(axleXs[i]-37,126,74,a.chamberRight||"",12);
    page2 += mipField(axleXs[i]-37,245,74,a.chamberLeft||"",12);
