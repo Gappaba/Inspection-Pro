@@ -2525,24 +2525,18 @@ function mnSpecialBrakeType(){
  return "";
 }
 function mnSpecialBrakeSection(){
- const t=mnSpecialBrakeType();
- if(!t) return "";
  return `<div class="card" style="margin-top:12px">
-   <h3>${t==="Electric"?"Electric Brakes":"Hydraulic / Surge Brakes"} — Page 2 Required Information</h3>
-   <p class="muted">This section is required because ${t==="Electric"?"Electric":"Hydraulic/Surge"} brakes were selected during setup.</p>
-   ${t==="Electric"?`<label>Controller Make / Model *</label><input id="brakeControllerMakeModel" value="${esc(state.brakeControllerMakeModel)}">`:""}
-   <div class="row">
-     <div><label>Tow Vehicle License Plate *</label><input id="towPlate" value="${esc(state.towPlate)}"></div>
-     <div><label>State *</label><input id="towState" value="${esc(state.towState)}"></div>
-     <div><label>GVWR *</label><input id="towGVWR" value="${esc(state.towGVWR)}"></div>
-   </div>
-   <div class="row">
-     <div><label>Trailer License Plate *</label><input id="trailerPlate" value="${esc(state.trailerPlate)}"></div>
-     <div><label>State *</label><input id="trailerState" value="${esc(state.trailerState)}"></div>
-     <div><label>GVWR *</label><input id="trailerGVWR" value="${esc(state.trailerGVWR)}"></div>
-   </div>
+ <h3>Electric / Surge Brakes and Towing Information</h3>
+ <label>Brake system on this form</label><select id="mnBrakeSupplementType">
+ ${["N/A","Electric","Hydraulic Surge"].map(v=>`<option value="${v}" ${((state.mnBrakeSupplementType||"N/A")===v)?"selected":""}>${v}</option>`).join("")}</select>
+ <label>Brake Controller Make / Model (if applicable)</label><input id="brakeControllerMakeModel" value="${esc(state.brakeControllerMakeModel)}">
+ <div class="row"><div><label>Tow Vehicle License Plate</label><input id="towPlate" value="${esc(state.towPlate)}"></div>
+ <div><label>State</label><input id="towState" value="${esc(state.towState)}"></div><div><label>GVWR</label><input id="towGVWR" value="${esc(state.towGVWR)}"></div></div>
+ <div class="row"><div><label>Trailer License Plate</label><input id="trailerPlate" value="${esc(state.trailerPlate)}"></div>
+ <div><label>State</label><input id="trailerState" value="${esc(state.trailerState)}"></div><div><label>GVWR</label><input id="trailerGVWR" value="${esc(state.trailerGVWR)}"></div></div>
  </div>`;
 }
+function mnSectionNA(id,label){return `<label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="${id}" ${state.mnSectionNA?.[id]?"checked":""} style="width:auto"> ${label} — Not Applicable</label>`;}
 
 function mnSupplement(){
  state.stage="mnSupplement"; save();
@@ -2561,31 +2555,29 @@ function mnSupplement(){
 
  ${mnSpecialBrakeSection()}
 
- <h3>Steering Wheel ${mnSteeringRequired()?"— REQUIRED":"— N/A FOR TRAILER"}</h3>
- ${mnSteeringRequired()?`
- <p class="muted">All vehicles except trailers require the steering wheel section to be completed.</p>
- <div class="row"><div><label>Wheel Diameter *</label><input id="steeringWheelDiameter" value="${esc(state.steeringWheelDiameter)}"></div>
- <div><label>Free Play (in.) *</label><input id="steeringFreePlay" value="${esc(state.steeringFreePlay)}"></div></div>
- `:`<p class="muted">Vehicle Type is Trailer. Steering wheel measurements are not required.</p>`}
+ <h3>Steering Wheel</h3>
+ ${mnSectionNA("naSteering","Steering Wheel")}
+ <div class="row"><div><label>Wheel Diameter</label><input id="steeringWheelDiameter" value="${esc(state.steeringWheelDiameter)}"></div>
+ <div><label>Free Play (in.)</label><input id="steeringFreePlay" value="${esc(state.steeringFreePlay)}"></div></div>
 
- <h3>Tractor Protection Valve ${mnUnitKind().tractor?"— Tractor":"— if equipped"}</h3>
+ <h3>Tractor Protection Valve</h3>${mnSectionNA("naTractorValve","Tractor Protection Valve")}
  <div class="row"><div><label>Activates at (PSI)</label><input id="tractorProtectionPSI" value="${esc(state.tractorProtectionPSI)}"></div>
  <div><label>Test Method</label><select id="tractorFlowPressure"><option value="">N/A</option><option value="Flow" ${state.tractorFlowPressure==="Flow"?"selected":""}>Flow</option><option value="Pressure" ${state.tractorFlowPressure==="Pressure"?"selected":""}>Pressure</option></select></div></div>
 
- <h3>Safety Devices ${mnUnitKind().tow?"— if equipped":"— N/A unless equipped"}</h3>
+ <h3>Safety Devices</h3>${mnSectionNA("naSafety","Safety Devices")}
  <div class="row"><div><label>Type <span class="muted">(updates Chain/Cable block)</span></label><select id="safetyDeviceType"><option value="" ${!state.safetyDeviceType?"selected":""}>N/A</option><option ${state.safetyDeviceType==="Chain"?"selected":""}>Chain</option><option ${state.safetyDeviceType==="Cable"?"selected":""}>Cable</option></select></div>
  <div><label>GVWR</label><input id="safetyGVWR" value="${esc(state.safetyGVWR)}"></div>
  <div><label>Size</label><input id="safetySize" value="${esc(state.safetySize)}"></div>
  <div><label>Grade</label><input id="safetyGrade" value="${esc(state.safetyGrade)}"></div></div>
 
- <h3>5th Wheel Measurements (in.) ${mnUnitKind().tractor?"— if equipped":"— N/A unless equipped"}</h3>
+ <h3>5th Wheel Measurements (in.)</h3>${mnSectionNA("naFifth","Fifth Wheel")}
  <div class="row"><div><label>Pivot Pin / Bracket</label><input id="fifthPivot" value="${esc(state.fifthPivot)}"></div>
  <div><label>Slider / Base</label><input id="fifthSlider" value="${esc(state.fifthSlider)}"></div>
  <div><label>Upper / Lower Halves</label><input id="fifthHalves" value="${esc(state.fifthHalves)}"></div></div>
  <div class="row"><div><label>Trailer Used for Test — Lic. Plate</label><input id="testTrailerPlate" value="${esc(state.testTrailerPlate)}"></div>
  <div><label>State</label><input id="testTrailerState" value="${esc(state.testTrailerState)}"></div></div>
 
- <h3>Motor Coaches ${mnUnitKind().bus?"— required":"— N/A"}</h3>
+ <h3>Motor Coaches</h3>
  <label>Emergency Exits / Push-out Windows <span class="muted">(updates PASS/FAIL/N/A block)</span></label>
  <select id="motorcoachExitResult"><option>PASS</option><option>FAIL</option><option>N/A</option></select>
 
@@ -2597,49 +2589,15 @@ function mnSupplement(){
  document.getElementById("motorcoachExitResult").value=state.motorcoachExitResult||"N/A";
 }
 function saveMnSupplement(){
- if(mnSteeringRequired()){
-   const wheel=document.getElementById("steeringWheelDiameter");
-   const free=document.getElementById("steeringFreePlay");
-   if(!wheel || !wheel.value.trim()){
-     alert("Wheel Diameter is required for all non-trailer vehicles.");
-     if(wheel) wheel.focus();
-     return;
-   }
-   if(!free || !free.value.trim()){
-     alert("Steering Wheel Free Play is required for all non-trailer vehicles.");
-     if(free) free.focus();
-     return;
-   }
-   state.steeringWheelDiameter=wheel.value;
-   state.steeringFreePlay=free.value;
- }else{
-   state.steeringWheelDiameter="";
-   state.steeringFreePlay="";
- }
- const specialBrake=mnSpecialBrakeType();
- if(specialBrake){
-   const ids=["towPlate","towState","towGVWR","trailerPlate","trailerState","trailerGVWR"];
-   if(specialBrake==="Electric") ids.unshift("brakeControllerMakeModel");
-   for(const id of ids){
-     const el=document.getElementById(id);
-     if(!el || !el.value.trim()){
-       alert("Complete all required Page 2 "+specialBrake+" brake information before continuing.");
-       if(el) el.focus();
-       return;
-     }
-   }
-   state.brakeControllerMakeModel=document.getElementById("brakeControllerMakeModel")?.value||"";
-   state.towPlate=document.getElementById("towPlate").value;
-   state.towState=document.getElementById("towState").value;
-   state.towGVWR=document.getElementById("towGVWR").value;
-   state.trailerPlate=document.getElementById("trailerPlate").value;
-   state.trailerState=document.getElementById("trailerState").value;
-   state.trailerGVWR=document.getElementById("trailerGVWR").value;
- }
- ["tractorProtectionPSI","tractorFlowPressure","safetyDeviceType","safetyGVWR","safetySize","safetyGrade",
- "fifthPivot","fifthSlider","fifthHalves","testTrailerPlate","testTrailerState","motorcoachExitResult","mipNotes"].forEach(id=>state[id]=document.getElementById(id).value);
+ const na={};["naSteering","naTractorValve","naSafety","naFifth"].forEach(id=>na[id]=!!document.getElementById(id)?.checked);
+ state.mnSectionNA=na;
+ const ids=["steeringWheelDiameter","steeringFreePlay","brakeControllerMakeModel","towPlate","towState","towGVWR","trailerPlate","trailerState","trailerGVWR","tractorProtectionPSI","tractorFlowPressure","safetyDeviceType","safetyGVWR","safetySize","safetyGrade","fifthPivot","fifthSlider","fifthHalves","testTrailerPlate","testTrailerState","motorcoachExitResult","mipNotes","mnBrakeSupplementType"];
+ ids.forEach(id=>{state[id]=document.getElementById(id)?.value||"";});
+ const clear={naSteering:["steeringWheelDiameter","steeringFreePlay"],naTractorValve:["tractorProtectionPSI","tractorFlowPressure"],naSafety:["safetyDeviceType","safetyGVWR","safetySize","safetyGrade"],naFifth:["fifthPivot","fifthSlider","fifthHalves","testTrailerPlate","testTrailerState"]};
+ Object.keys(clear).forEach(k=>{if(na[k])clear[k].forEach(id=>state[id]="");});
+ if(state.mnBrakeSupplementType==="N/A") ["brakeControllerMakeModel","towPlate","towState","towGVWR","trailerPlate","trailerState","trailerGVWR"].forEach(id=>state[id]="");
  state.axleConfig.forEach((a,i)=>{const n=i+1;if(n<=7){a.chamberRight=document.getElementById("ctR"+n)?.value||a.chamberRight||"";a.chamberLeft=document.getElementById("ctL"+n)?.value||a.chamberLeft||"";}});
- save(); review();
+ save();review();
 }
 
 function review(){
@@ -3129,9 +3087,9 @@ function applyMinnesotaDropdownsToNativePdf(form){
 
  // Brake type selections from axle configuration -> Page 2 native Electric / Hydraulic Surge selection.
  const brakeTypes=state.axleConfig.map(a=>a.brake);
- if(brakeTypes.some(x=>String(x).toLowerCase().includes("electric"))){
+ if(state.mnBrakeSupplementType==="Electric"){
    safeRadio(form,"Group2","Electric");
- } else if(brakeTypes.some(x=>String(x).toLowerCase().includes("hydraulic")||String(x).toLowerCase().includes("surge"))){
+ } else if(state.mnBrakeSupplementType==="Hydraulic Surge"){
    safeRadio(form,"Group2","Hydraulic#20Surge");
  }
 
@@ -3640,7 +3598,7 @@ function officialMIPForm(){
  page2 += mipField(382,747,110,state.tractorProtectionPSI,11);
  page2 += mipField(382,777,110,state.tractorFlowPressure,11);
  page2 += mipField(394,837,92,state.safetyGVWR,11);
- if(state.safetyDeviceType==="Chain") page2+=mipCheck(350,855); else page2+=mipCheck(438,855);
+ if(state.safetyDeviceType==="Chain") page2+=mipCheck(350,855); else if(state.safetyDeviceType==="Cable") page2+=mipCheck(438,855);
  page2 += mipField(321,878,78,state.safetySize,11);
  page2 += mipField(438,878,55,state.safetyGrade,11);
 
@@ -3656,8 +3614,8 @@ function officialMIPForm(){
 
  // Brake type checkboxes on information page.
  const brakeTypes=state.axleConfig.map(a=>a.brake);
- if(brakeTypes.includes("Electric")) page2+=mipCheck(82,650);
- if(brakeTypes.includes("Surge")) page2+=mipCheck(173,650);
+ if(state.mnBrakeSupplementType==="Electric") page2+=mipCheck(82,650);
+ if(state.mnBrakeSupplementType==="Hydraulic Surge") page2+=mipCheck(173,650);
  if(state.signature) page2 += `<img class="mip-signature" src="${state.signature}" style="left:417px;top:946px;width:320px;height:36px">`;
 
  appScreen.innerHTML=`
