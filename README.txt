@@ -10,3 +10,10 @@ Setup: Supabase private inspection-reports bucket and existing read/insert polic
 Run SUPABASE_REPORT_STORAGE_V96.sql in Supabase SQL Editor to allow updating an existing uploaded report. It does not delete existing records.
 
 Limitations: Cloud upload is best-effort; if offline or upload fails, use SAVE TO CLOUD again when connected. Automatic retry of all historical completed reports is not yet implemented. Test with a sample inspection before using in production. Report downloads from other devices can be accessed after syncing inspection history and opening that completed inspection.
+
+V96 TEST RELEASE (built from v95 reference):
+- Original v95 home logo restored as home-logo.png. Upload this file alongside index.html.
+- Federal PDF output uses one-page US Letter landscape.
+- Cloud PDF and photo upload requires Supabase inspection-reports bucket and correct policies.
+- Verify completed Federal PDF, logo, customer/vehicle/technician sync, and cloud upload before production use.
+- Do not clear local browser/app storage during update.
