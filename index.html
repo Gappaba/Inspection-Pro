@@ -2233,19 +2233,7 @@ function setup(type,resuming=false){
  </div>
  <label>Customer Email</label><input id="customerEmail" type="email" value="${state.customerEmail||""}">
  <label>Unit #</label><input id="unit" value="${state.unit}">
- <label>What type of equipment are you inspecting?</label>
- <select id="equipmentType" onchange="equipmentTypeChanged()">
- <option value="">Select equipment type</option>
- <option value="Straight Truck">Straight Truck / Single-Unit Truck</option>
- <option value="Truck Tractor">Truck Tractor</option>
- <option value="Trailer">Trailer / Semi-Trailer</option>
- <option value="Bucket Truck">Bucket Truck / Aerial Lift</option>
- <option value="Service Truck">Service Truck</option>
- <option value="Bus">Bus / Motor Coach</option>
- <option value="Other">Other Equipment</option>
- </select>
- <div class="muted" style="margin:0 0 12px">Used to select applicable inspection questions. Each vehicle or trailer is inspected separately. This selection does not print on the report.</div>
- <label>Vehicle Type</label><select id="vehicleType"><option>Truck</option><option>Tractor</option><option>Trailer</option><option>Bus</option><option>Other</option></select>
+ 
  <label>VIN</label><input id="vin" value="${state.vin}">
  <div class="row"><div><label>Year</label><input id="year" value="${state.year}"></div><div><label>Make</label><input id="make" value="${state.make}"></div></div>
  <div class="row">
@@ -2284,25 +2272,15 @@ function setup(type,resuming=false){
  if(state.selectedCustomerId&&document.getElementById("savedCustomerSelect"))document.getElementById("savedCustomerSelect").value=state.selectedCustomerId;
  if(state.selectedVehicleId&&document.getElementById("savedVehicleSelect"))document.getElementById("savedVehicleSelect").value=state.selectedVehicleId;
  if(activeTechnicianId()&&document.getElementById("savedInspectorSelect"))document.getElementById("savedInspectorSelect").value=activeTechnicianId();
- document.getElementById("equipmentType").value=state.equipmentType||({Tractor:"Truck Tractor",Trailer:"Trailer",Bus:"Bus",Truck:"Straight Truck"}[state.vehicleType]||"");
- document.getElementById("vehicleType").value=state.vehicleType;
+ 
  document.getElementById("odometerType").value=state.odometerType||"Chassis";
 }
 
-function equipmentTypeChanged(){
- const kind=document.getElementById("equipmentType")?.value||"";
- const mapped={"Straight Truck":"Truck","Truck Tractor":"Tractor","Trailer":"Trailer","Bucket Truck":"Truck","Service Truck":"Truck","Bus":"Bus","Other":"Other"};
- if(kind&&mapped[kind])document.getElementById("vehicleType").value=mapped[kind];
- // Do not overwrite existing axle configurations or answers.
-}
-
 function saveSetup(){
- state.equipmentType=document.getElementById("equipmentType")?.value||"";
- if(!state.equipmentType){alert("Please select the type of equipment being inspected.");return;}
  ["customer","unit","vin","year","make","model","plate","plateState","inspectorName"].forEach(id=>state[id]=document.getElementById(id)?.value||"");
  state.odometer=document.getElementById("odo").value;
  state.odometerType=document.getElementById("odometerType").value;
- state.vehicleType=document.getElementById("vehicleType").value;
+ 
  state.axles=+document.getElementById("axles").value;
  if(state.type==="Minnesota MIP") ["location","cityStateZip","ownerName","ownerAddress","ownerCityStateZip","carrierName","carrierAddress","carrierCityStateZip","ownerDot","carrierDot","inspectorNo","decalNo"].forEach(id=>state[id]=document.getElementById(id).value);
  state.axleConfig=Array.from({length:state.axles},(_,i)=>state.axleConfig[i]||{position:i===0?"Steer":"Drive",brake:"Air",tires:i===0?2:4});
@@ -2440,7 +2418,7 @@ function guidance(it){
 
 function showItem(){
  const its=flatItems();state.stage="inspection";save();
- if(state.index>=its.length){review();return}
+ if(state.index>=its.length){if(state.type==="Minnesota MIP")mnSupplement();else review();return}
  const it=its[state.index],pct=Math.round((state.index/its.length)*100);
  appScreen.innerHTML=`${back(state.index===0?"dashboard()":"previousItem()")}<div class="card"><span class="pill">${state.type}</span><h2>${it.section}</h2>
  <div class="progress"><div class="bar" style="width:${pct}%"></div></div><p class="muted">${state.index+1} of ${its.length} • Auto-saved ${state.lastSaved||""}</p>
@@ -2530,8 +2508,10 @@ function mnSpecialBrakeSection(){
  <label>Brake system on this form</label><select id="mnBrakeSupplementType">
  ${["N/A","Electric","Hydraulic Surge"].map(v=>`<option value="${v}" ${((state.mnBrakeSupplementType||"N/A")===v)?"selected":""}>${v}</option>`).join("")}</select>
  <label>Brake Controller Make / Model (if applicable)</label><input id="brakeControllerMakeModel" value="${esc(state.brakeControllerMakeModel)}">
+ ${mnSectionNA("naTowVehicle","Tow Vehicle")}
  <div class="row"><div><label>Tow Vehicle License Plate</label><input id="towPlate" value="${esc(state.towPlate)}"></div>
  <div><label>State</label><input id="towState" value="${esc(state.towState)}"></div><div><label>GVWR</label><input id="towGVWR" value="${esc(state.towGVWR)}"></div></div>
+ ${mnSectionNA("naTrailer","Trailer")}
  <div class="row"><div><label>Trailer License Plate</label><input id="trailerPlate" value="${esc(state.trailerPlate)}"></div>
  <div><label>State</label><input id="trailerState" value="${esc(state.trailerState)}"></div><div><label>GVWR</label><input id="trailerGVWR" value="${esc(state.trailerGVWR)}"></div></div>
  </div>`;
@@ -2574,6 +2554,7 @@ function mnSupplement(){
  <div class="row"><div><label>Pivot Pin / Bracket</label><input id="fifthPivot" value="${esc(state.fifthPivot)}"></div>
  <div><label>Slider / Base</label><input id="fifthSlider" value="${esc(state.fifthSlider)}"></div>
  <div><label>Upper / Lower Halves</label><input id="fifthHalves" value="${esc(state.fifthHalves)}"></div></div>
+ ${mnSectionNA("naTestTrailer","Trailer Used for Test")}
  <div class="row"><div><label>Trailer Used for Test — Lic. Plate</label><input id="testTrailerPlate" value="${esc(state.testTrailerPlate)}"></div>
  <div><label>State</label><input id="testTrailerState" value="${esc(state.testTrailerState)}"></div></div>
 
@@ -2589,24 +2570,37 @@ function mnSupplement(){
  document.getElementById("motorcoachExitResult").value=state.motorcoachExitResult||"N/A";
 }
 function saveMnSupplement(){
- const na={};["naSteering","naTractorValve","naSafety","naFifth"].forEach(id=>na[id]=!!document.getElementById(id)?.checked);
+ const na={};["naSteering","naTractorValve","naSafety","naFifth","naTowVehicle","naTrailer","naTestTrailer"].forEach(id=>na[id]=!!document.getElementById(id)?.checked);
  state.mnSectionNA=na;
  const ids=["steeringWheelDiameter","steeringFreePlay","brakeControllerMakeModel","towPlate","towState","towGVWR","trailerPlate","trailerState","trailerGVWR","tractorProtectionPSI","tractorFlowPressure","safetyDeviceType","safetyGVWR","safetySize","safetyGrade","fifthPivot","fifthSlider","fifthHalves","testTrailerPlate","testTrailerState","motorcoachExitResult","mipNotes","mnBrakeSupplementType"];
  ids.forEach(id=>{state[id]=document.getElementById(id)?.value||"";});
- const clear={naSteering:["steeringWheelDiameter","steeringFreePlay"],naTractorValve:["tractorProtectionPSI","tractorFlowPressure"],naSafety:["safetyDeviceType","safetyGVWR","safetySize","safetyGrade"],naFifth:["fifthPivot","fifthSlider","fifthHalves","testTrailerPlate","testTrailerState"]};
+ const clear={naSteering:["steeringWheelDiameter","steeringFreePlay"],naTractorValve:["tractorProtectionPSI","tractorFlowPressure"],naSafety:["safetyDeviceType","safetyGVWR","safetySize","safetyGrade"],naFifth:["fifthPivot","fifthSlider","fifthHalves"],naTowVehicle:["towPlate","towState","towGVWR"],naTrailer:["trailerPlate","trailerState","trailerGVWR"],naTestTrailer:["testTrailerPlate","testTrailerState"]};
  Object.keys(clear).forEach(k=>{if(na[k])clear[k].forEach(id=>state[id]="");});
- if(state.mnBrakeSupplementType==="N/A") ["brakeControllerMakeModel","towPlate","towState","towGVWR","trailerPlate","trailerState","trailerGVWR"].forEach(id=>state[id]="");
+ if(state.mnBrakeSupplementType==="N/A") state.brakeControllerMakeModel="";
  state.axleConfig.forEach((a,i)=>{const n=i+1;if(n<=7){a.chamberRight=document.getElementById("ctR"+n)?.value||a.chamberRight||"";a.chamberLeft=document.getElementById("ctL"+n)?.value||a.chamberLeft||"";}});
- save();review();
+ const groups=[
+  ["Tow Vehicle",na.naTowVehicle,["towPlate","towState","towGVWR"]],
+  ["Trailer",na.naTrailer,["trailerPlate","trailerState","trailerGVWR"]],
+  ["Steering",na.naSteering,["steeringWheelDiameter","steeringFreePlay"]],
+  ["Tractor Protection Valve",na.naTractorValve,["tractorProtectionPSI","tractorFlowPressure"]],
+  ["Safety Devices",na.naSafety,["safetyDeviceType","safetyGVWR","safetySize","safetyGrade"]],
+  ["Fifth Wheel",na.naFifth,["fifthPivot","fifthSlider","fifthHalves"]],
+  ["Trailer Used for Test",na.naTestTrailer,["testTrailerPlate","testTrailerState"]]
+ ];
+ const missing=groups.filter(([name,isNA,fields])=>!isNA&&!fields.some(id=>String(state[id]||"").trim())).map(x=>x[0]);
+ if(missing.length){alert("Enter applicable information or select Not Applicable for: "+missing.join(", "));save();return;}
+ state.mnSupplementDone=true;save();review();
 }
 
 function review(){
+ if(state.type==="Minnesota MIP" && !state.mnSupplementDone){mnSupplement();return;}
  state.stage="review";save();const fails=state.results.filter(r=>r.answer==="FAIL");
  appScreen.innerHTML=`${back("previousItem()")}<div class="card"><h2>Final Review</h2><p><b>${state.type}</b><br>${state.customer} — Unit ${state.unit}</p>
  <p>Completed: <b>${state.results.length} / ${flatItems().length}</b></p><p>Deficiencies: <b class="${fails.length?"danger":"success"}">${fails.length}</b></p>
  ${state.type==="Minnesota MIP"?`<h3>Brake Measurements</h3>${state.brakeMeasurements.map(x=>`<p>Axle ${x.axle} — ${x.type}: L ${x.left} / R ${x.right}</p>`).join("")}`:""}
  <h3>Tire Measurements</h3>${state.tireMeasurements.map(x=>`<p>Axle ${x.axle} ${x.position}: ${x.tread}/32 • ${x.psi} PSI</p>`).join("")}
  ${fails.map((f,i)=>`<div class="card"><b>#${i+1} ${f.item.name}</b><p>${f.description}</p><img class="photo-preview" src="${f.photo}"></div>`).join("")}
+ ${state.type==="Minnesota MIP"?`<button class="secondary" onclick="mnSupplement()">EDIT PAGE 2 QUESTIONS</button>`:""}
  <button class="primary" onclick="signatureScreen()">CONTINUE TO SIGNATURE →</button></div>`;
  if(state.type==="U.S. Federal Periodic Inspection"){
    const host=document.querySelector("#appScreen .card")||document.getElementById("appScreen");
