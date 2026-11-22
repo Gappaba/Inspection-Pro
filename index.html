@@ -442,7 +442,7 @@ const FED_SECTIONS=[
 ];
 
 function fresh(){
- return {startedAt:null,type:"",customer:"",customerContact:"",customerPhone:"",customerEmail:"",selectedCustomerId:"",selectedVehicleId:"",unit:"",vin:"",year:"",make:"",model:"",odometer:"",odometerType:"Chassis",vehicleType:"Truck",plate:"",plateState:"MN",
+ return {startedAt:null,type:"",customer:"",customerContact:"",customerPhone:"",customerEmail:"",selectedCustomerId:"",selectedVehicleId:"",unit:"",vin:"",year:"",make:"",model:"",odometer:"",odometerType:"Chassis",vehicleType:"Truck",equipmentType:"",plate:"",plateState:"MN",
  location:"",cityStateZip:"",ownerName:"",ownerAddress:"",ownerCityStateZip:"",carrierName:"",carrierAddress:"",carrierCityStateZip:"",ownerDot:"",carrierDot:"",
  inspectorName:"",inspectorNo:"",decalNo:"",axles:2,axleConfig:[],brakeMeasurements:[],tireMeasurements:[],
  brakeControllerMakeModel:"",towPlate:"",towState:"",towGVWR:"",trailerPlate:"",trailerState:"",trailerGVWR:"",
@@ -997,7 +997,7 @@ function selectVehicleForInspection(id){
  Object.assign(state,{unit:v.unit||"",vehicleType:v.vehicleType||"Truck",vin:v.vin||"",year:v.year||"",make:v.make||"",model:v.model||"",plate:v.plate||"",plateState:v.plateState||"MN",odometerType:v.odometerType||"Chassis",axles:v.axles||2});save();newInspection()
 }
 function vehicleOptionsHtml(customerId){return `<option value="">-- Select saved unit --</option>`+vehiclesForCustomer(customerId||"").map(v=>`<option value="${esc(v.id)}">${esc(v.unit||v.vin||"Vehicle")} — ${esc([v.year,v.make,v.model].filter(Boolean).join(" "))}</option>`).join("")}
-function applyVehicleSelection(){const id=document.getElementById("savedVehicleSelect")?.value;if(!id)return;const v=loadVehicles().find(x=>x.id===id);if(!v)return;state.selectedVehicleId=v.id;Object.assign(state,{unit:v.unit||"",vehicleType:v.vehicleType||"Truck",vin:v.vin||"",year:v.year||"",make:v.make||"",model:v.model||"",plate:v.plate||"",plateState:v.plateState||"MN",odometerType:v.odometerType||"Chassis",axles:v.axles||2});save();setup(state.type)}
+function applyVehicleSelection(){const id=document.getElementById("savedVehicleSelect")?.value;if(!id)return;const v=loadVehicles().find(x=>x.id===id);if(!v)return;state.selectedVehicleId=v.id;state.equipmentType=({Tractor:"Truck Tractor",Trailer:"Trailer",Bus:"Bus",Truck:"Straight Truck"}[v.vehicleType]||"Other");Object.assign(state,{unit:v.unit||"",vehicleType:v.vehicleType||"Truck",vin:v.vin||"",year:v.year||"",make:v.make||"",model:v.model||"",plate:v.plate||"",plateState:v.plateState||"MN",odometerType:v.odometerType||"Chassis",axles:v.axles||2});save();setup(state.type)}
 async function syncVehiclesFromBackend(){if(!backendConfigured())return;const cli=await getBackendClient(),{data:{session}}=await cli.auth.getSession();if(!session)return;const {data,error}=await cli.from("customer_vehicles").select("*").order("unit");if(error)throw error;const byId=new Map(loadVehicles().map(v=>[v.id,v]));(data||[]).forEach(r=>byId.set(r.vehicle_id,{id:r.vehicle_id,customerId:r.customer_id,unit:r.unit||"",vehicleType:r.vehicle_type||"Truck",vin:r.vin||"",year:r.year||"",make:r.make||"",model:r.model||"",plate:r.plate||"",plateState:r.plate_state||"",odometerType:r.odometer_type||"Chassis",axles:r.axles||2,notes:r.notes||"",updatedAt:r.updated_at||""}));saveVehicles([...byId.values()])}
 
 const BACKEND_CONFIG_KEY="inspectionProBackendV1";
@@ -2233,6 +2233,18 @@ function setup(type,resuming=false){
  </div>
  <label>Customer Email</label><input id="customerEmail" type="email" value="${state.customerEmail||""}">
  <label>Unit #</label><input id="unit" value="${state.unit}">
+ <label>What type of equipment are you inspecting?</label>
+ <select id="equipmentType" onchange="equipmentTypeChanged()">
+ <option value="">Select equipment type</option>
+ <option value="Straight Truck">Straight Truck / Single-Unit Truck</option>
+ <option value="Truck Tractor">Truck Tractor</option>
+ <option value="Trailer">Trailer / Semi-Trailer</option>
+ <option value="Bucket Truck">Bucket Truck / Aerial Lift</option>
+ <option value="Service Truck">Service Truck</option>
+ <option value="Bus">Bus / Motor Coach</option>
+ <option value="Other">Other Equipment</option>
+ </select>
+ <div class="muted" style="margin:0 0 12px">Used to select applicable inspection questions. Each vehicle or trailer is inspected separately. This selection does not print on the report.</div>
  <label>Vehicle Type</label><select id="vehicleType"><option>Truck</option><option>Tractor</option><option>Trailer</option><option>Bus</option><option>Other</option></select>
  <label>VIN</label><input id="vin" value="${state.vin}">
  <div class="row"><div><label>Year</label><input id="year" value="${state.year}"></div><div><label>Make</label><input id="make" value="${state.make}"></div></div>
@@ -2272,11 +2284,21 @@ function setup(type,resuming=false){
  if(state.selectedCustomerId&&document.getElementById("savedCustomerSelect"))document.getElementById("savedCustomerSelect").value=state.selectedCustomerId;
  if(state.selectedVehicleId&&document.getElementById("savedVehicleSelect"))document.getElementById("savedVehicleSelect").value=state.selectedVehicleId;
  if(activeTechnicianId()&&document.getElementById("savedInspectorSelect"))document.getElementById("savedInspectorSelect").value=activeTechnicianId();
+ document.getElementById("equipmentType").value=state.equipmentType||({Tractor:"Truck Tractor",Trailer:"Trailer",Bus:"Bus",Truck:"Straight Truck"}[state.vehicleType]||"");
  document.getElementById("vehicleType").value=state.vehicleType;
  document.getElementById("odometerType").value=state.odometerType||"Chassis";
 }
 
+function equipmentTypeChanged(){
+ const kind=document.getElementById("equipmentType")?.value||"";
+ const mapped={"Straight Truck":"Truck","Truck Tractor":"Tractor","Trailer":"Trailer","Bucket Truck":"Truck","Service Truck":"Truck","Bus":"Bus","Other":"Other"};
+ if(kind&&mapped[kind])document.getElementById("vehicleType").value=mapped[kind];
+ // Do not overwrite existing axle configurations or answers.
+}
+
 function saveSetup(){
+ state.equipmentType=document.getElementById("equipmentType")?.value||"";
+ if(!state.equipmentType){alert("Please select the type of equipment being inspected.");return;}
  ["customer","unit","vin","year","make","model","plate","plateState","inspectorName"].forEach(id=>state[id]=document.getElementById(id)?.value||"");
  state.odometer=document.getElementById("odo").value;
  state.odometerType=document.getElementById("odometerType").value;
