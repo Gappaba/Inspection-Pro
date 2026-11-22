@@ -1,11 +1,12 @@
-Inspection Pro v95 — Automatic Synchronization
+Inspection Pro v96 — Report Cloud Storage (test build)
 
-Changes from v94:
-- Automatically schedules a background Supabase sync after saving customers, vehicles, technicians, or an in-progress inspection.
-- Syncs when returning to the app or when the internet connection returns.
-- Prevents overlapping sync operations and avoids navigating Home during automatic sync.
-- Keeps local saves and the manual Sync Now button.
+New:
+- After finalization, attempts to upload completed inspection PDF and discrepancy photos to private Supabase Storage.
+- Final screen includes SAVE TO CLOUD (retry) and OPEN CLOUD PDF (signed URL).
+- Corrects Minnesota completed PDF export to use the existing native Minnesota form generator.
+- Keeps locally saved completed inspection and current v95 synchronization features.
 
-Requires the existing Supabase connection and signed-in account. An offline save remains local until an online sync succeeds. The current app uses one active draft; cross-device simultaneous editing and conflict resolution are not yet supported. Test on both devices before relying on it for production inspections.
+Setup: Supabase private inspection-reports bucket and existing read/insert policies are required.
+Run SUPABASE_REPORT_STORAGE_V96.sql in Supabase SQL Editor to allow updating an existing uploaded report. It does not delete existing records.
 
-Deploy: extract ZIP and upload index.html and the other package files to the root of the GitHub Pages repository, replacing the existing files. Do not clear browser data or uninstall the Home Screen app.
+Limitations: Cloud upload is best-effort; if offline or upload fails, use SAVE TO CLOUD again when connected. Automatic retry of all historical completed reports is not yet implemented. Test with a sample inspection before using in production. Report downloads from other devices can be accessed after syncing inspection history and opening that completed inspection.
