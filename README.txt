@@ -25,3 +25,10 @@ Inspection Pro v93 draft navigation repair:
 - App saves on page hide and backgrounding.
 - Starting a new inspection warns before replacing the one existing draft.
 - This version still supports one active draft, not multiple simultaneous drafts.
+
+Inspection Pro v94 customer sync repair:
+- Sync Now uploads locally saved customer records that are absent from Supabase.
+- Existing Supabase customers are not overwritten during the initial upload.
+- Customers are downloaded again after upload to share across devices.
+- The app preserves existing local customer records and drafts.
+- This does not yet reconcile conflicting edits or synchronize customer deletions.
