@@ -1,5 +1,5 @@
 const cachePrefix = "inspection-pro-precache-";
-const cacheName = cachePrefix + "v99";
+const cacheName = cachePrefix + "v100";
 const entry = new URL("index.html", self.registration.scope).href;
 const root = self.registration.scope;
 const files = new Set([
